@@ -1,0 +1,4 @@
+"38_batch1.hdf5, XP04, channel_1"
+Bout Number,Bout Start [idx],Bout End [idx],Bout Start [s],Bout End [s]
+1.0,48.0,59.0,48.9920005798,59.9930000305
+2.0,299.0,312.0,300.015991211,313.006011963
