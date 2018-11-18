@@ -228,7 +228,7 @@ def get_bg(filename,r,fly_size_range=[20,100],min_dist=40,morphSize=3,
                
     cap = cv2.VideoCapture(filename)
     N_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    varThresh= 125 #75
+    varThresh= 125 #125 #75
     fgbg = cv2.createBackgroundSubtractorMOG2(varThreshold=varThresh, 
                                               detectShadows=False)
     
@@ -238,8 +238,10 @@ def get_bg(filename,r,fly_size_range=[20,100],min_dist=40,morphSize=3,
     y_cm = [] 
     framenum_list = []
     mean_intensity = [] 
+    mean_obj_val = np.array([])
     #min_dist = 70
     delta_cm = 0 
+    fly_pix_val_max = 100 
     cc = 10
     cap.set(1,cc)
     
@@ -274,14 +276,41 @@ def get_bg(filename,r,fly_size_range=[20,100],min_dist=40,morphSize=3,
             cnt_areas = np.asarray([cv2.contourArea(cnt) for cnt in cnts])
             cnt_area_check = (cnt_areas > fly_size_range[0]) & \
                             (cnt_areas < fly_size_range[1])
+            
             if np.sum(cnt_area_check) == 1:
                 c = cnts[np.where(cnt_area_check)[0][0]]
-                M = cv2.moments(c)
-                x_cm.append(M['m10']/M['m00'])
-                y_cm.append(M['m01']/M['m00'])
                 
-                framenum_list.append(cc)
+                # check that the detected object has consistent pixel value
+                mask = np.zeros(fgmask.shape,np.uint8)
+                cv2.drawContours(mask,[c],0,255,-1)
+                mean_obj_val_curr = cv2.mean(frame_gray,mask = mask)[0]
                 
+                if len(mean_obj_val) > 2:
+                    obj_val_grand_mean = np.mean(mean_obj_val)
+                    obj_val_grand_std = np.std(mean_obj_val)
+                    obj_val_diff_test = np.abs(mean_obj_val_curr - \
+                                        obj_val_grand_mean)/obj_val_grand_std
+                    
+                    #print('Current: {}, previous mean +/- std: {} +/- {}'.format(mean_obj_val_curr, obj_val_grand_mean,obj_val_grand_std))
+                    # is the current pixel val > 5 sigma away from usual val?                    
+                    if obj_val_diff_test < 5:
+                        M = cv2.moments(c)
+                        x_cm.append(M['m10']/M['m00'])
+                        y_cm.append(M['m01']/M['m00'])
+                        
+                        framenum_list.append(cc)
+                        mean_obj_val = np.append(mean_obj_val,mean_obj_val_curr)
+                
+                else:
+                    if mean_obj_val_curr < fly_pix_val_max:
+                        M = cv2.moments(c)
+                        x_cm.append(M['m10']/M['m00'])
+                        y_cm.append(M['m01']/M['m00'])
+                        
+                        framenum_list.append(cc)
+                        mean_obj_val = np.append(mean_obj_val,mean_obj_val_curr)
+                        
+                # calculate distances between detected objects        
                 if len(x_cm) > 1:
                     fly_cm = np.transpose(np.vstack((np.asarray(x_cm),np.asarray(y_cm))))
                     D = pdist(fly_cm)
@@ -294,7 +323,9 @@ def get_bg(filename,r,fly_size_range=[20,100],min_dist=40,morphSize=3,
             
         cc+=1
     
+    #============================================================
     # if the fly is successfully detected in multiple frames
+    #============================================================
     try: 
         D = squareform(D)
         ind = np.where(D==delta_cm)
@@ -667,7 +698,6 @@ def visual_expresso_main(DATA_PATH, DATA_FILENAME, DEBUG_BG_FLAG=False,
     #----------------------------------------------
     UNDISTORT_FLAG = False      #undistort images using calibration coefficients
     SHOW_RESULTS_FLAG = False   #after analysis, play movie with track pts overlaid
-    PLOT_BG_FLAG = False        #plot all ROI backgrounds
     PLOT_CM_FLAG = False        #plot x and y center of mass
     
     #--------------------------------------------------------------------------
@@ -738,7 +768,7 @@ def visual_expresso_main(DATA_PATH, DATA_FILENAME, DEBUG_BG_FLAG=False,
                  debugFlag = DEBUG_BG_FLAG)
             
     # if you want to plot background
-    if PLOT_BG_FLAG:
+    if DEBUG_BG_FLAG:
         fig, ax = plt.subplots()
         ax.imshow(BG,cmap='Greys')
         ax.set_title(DATA_FILENAME)

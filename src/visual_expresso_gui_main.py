@@ -1356,13 +1356,25 @@ class BatchCombinedFrame(Frame):
 #------------------------------------------------------------------------------
 
 class ExtraButtonsFrame(Frame):
-    def __init__(self, parent, root, col=0,row=0):
-        Frame.__init__(self, parent)
+    def __init__(self, parent, col=0, row=0):
+        Frame.__init__(self, parent.master)
         
+        self.btnframe = Frame(parent.master)    
         self.sync_select_var = IntVar()
-        self.sync_select_checkbox = Checkbutton(self, text='Synchronize Selection',
+        self.sync_select_checkbox = Checkbutton(self.btnframe, text='Synchronize Selection',
                                                 variable = self.sync_select_var)
-            
+                                                
+        self.sync_select_checkbox.grid(column=col, row=row, padx=10, pady=2,
+                                sticky=NE)   
+                                
+        self.scan_btn =Button(self.btnframe, text='TEST',
+                                        command= lambda: self.temp_callback())
+        #self.scan_btn['state'] = 'disabled'                                
+        self.scan_btn.grid(column=col, row=row+1, padx=10, pady=2,
+                                sticky=NW)
+                                
+    def temp_callback(self):
+        print('click!')
 #------------------------------------------------------------------------------
 
 class Expresso:
@@ -1409,6 +1421,7 @@ class Expresso:
         self.channeldata_frame = ChannelDataFrame(self, col=0, row=3)
         #self.batchdata_frame = BatchFrame(self,col=3,row=1)
         self.viddata_frame = VideoDataFrame(self,col=0,row=4)
+        #self.extrabtns_frame = ExtraButtonsFrame(self,col=5,row=5)
         
         # ttk notebook for batch analysis
         self.batch_nb = Notebook(self.master)
@@ -1422,11 +1435,8 @@ class Expresso:
         self.batch_nb.add(self.batchdata_frame,text='Batch Channel Analysis')
         self.batch_nb.add(self.batchvid_frame,text='Batch Video Analysis')
         self.batch_nb.add(self.batchcomb_frame,text='Batch Combined Analysis')
-        # batch video analysis
         
-        
-        
-        
+         
         # insert logo image!
         self.img_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 
                                         'expresso_alpha.gif')
