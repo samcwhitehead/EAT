@@ -639,13 +639,13 @@ class VideoDataFrame(Frame):
        
         self.analyze_button = Button(self.btnframe, text='Analyze Video')
         self.analyze_button['state'] = 'disabled'
-        self.analyze_button['command'] = lambda: self.analyze_vid()
+        self.analyze_button['command'] = lambda: self.analyze_vid(parent)
         self.analyze_button.grid(column=col, row=row+4, padx=10, pady=2,
                                 sticky=SW)
                                 
         self.plot_button = Button(self.btnframe, text='Plot Results')
         self.plot_button['state'] = 'disabled'
-        self.plot_button['command'] = lambda: self.plot_tracking_results()
+        self.plot_button['command'] = lambda: self.plot_tracking_results(parent)
         self.plot_button.grid(column=col, row=row+5, padx=10, pady=2,
                                 sticky=SW)
         #----------------------------------------------------------------------
@@ -702,7 +702,6 @@ class VideoDataFrame(Frame):
         
     def on_select(self, selection):
         """ Enable or disable based on a valid directory selection. """
-
         if self.filelist.curselection():
             self.remove_button.configure(state=NORMAL)
             self.analyze_button.configure(state=NORMAL)
@@ -730,17 +729,19 @@ class VideoDataFrame(Frame):
     def clear_files(self):
         self.filelist.delete(0,END)      
         
-    def analyze_vid(self):
+    def analyze_vid(self,parent):
         selected_ind = self.selection_ind
         if len(selected_ind) != 1:
             tkMessageBox.showinfo(title='Error',
                                 message='Please select only one video file for analysis')
             return 
         
+        menu_debug_flag = parent.debug_tracking.get()
         file_entry = self.filelist.get(selected_ind[0])
         file_path, filename = os.path.split(file_entry)
         self.flyTrackData = visual_expresso_main(file_path, filename, 
-                            DEBUG_BG_FLAG=False, DEBUG_CM_FLAG=False, 
+                            DEBUG_BG_FLAG=menu_debug_flag, 
+                            DEBUG_CM_FLAG=menu_debug_flag, 
                             SAVE_DATA_FLAG=True, ELLIPSE_FIT_FLAG = False, 
                             PARAMS=trackingParams)
                             
@@ -752,7 +753,7 @@ class VideoDataFrame(Frame):
                             
         self.vid_filepath = file_entry
     
-    def plot_tracking_results(self):
+    def plot_tracking_results(self,parent):
         selected_ind = self.selection_ind
         if len(selected_ind) != 1:
             tkMessageBox.showinfo(title='Error',
@@ -762,6 +763,8 @@ class VideoDataFrame(Frame):
         file_entry = self.filelist.get(selected_ind[0])
         file_path, filename = os.path.split(file_entry)
         
+        menu_save_flag = parent.save_all_plots.get()
+        
         try:
             savename_prefix = os.path.splitext(filename)[0]
             save_filename = os.path.join(file_path, savename_prefix + \
@@ -770,7 +773,7 @@ class VideoDataFrame(Frame):
             #save_filename = os.path.normpath(save_filename)
             
             if self.vid_filepath == file_entry:
-                plot_body_cm(self.flyTrackData_smooth)
+                plot_body_cm(self.flyTrackData_smooth,SAVE_FLAG=menu_save_flag)
                 plot_body_vel(self.flyTrackData_smooth) 
                 plot_moving_v_still(self.flyTrackData_smooth)
                 plot_cum_dist(self.flyTrackData_smooth)
@@ -779,7 +782,7 @@ class VideoDataFrame(Frame):
                 _, track_filename = os.path.split(save_filename)
                 self.flyTrackData_smooth = \
                                 hdf5_to_flyTrackData(file_path, track_filename)
-                plot_body_cm(self.flyTrackData_smooth)
+                plot_body_cm(self.flyTrackData_smooth,SAVE_FLAG=menu_save_flag)
                 plot_body_vel(self.flyTrackData_smooth) 
                 plot_moving_v_still(self.flyTrackData_smooth)
                 plot_cum_dist(self.flyTrackData_smooth)
@@ -1386,7 +1389,6 @@ class Expresso:
         # style
         #???
 
-
         # initialize important fields for retaining where we are in data space
         self.initdirs = [] 
         init_dirs = initDirectories 
@@ -1410,6 +1412,16 @@ class Expresso:
         
         grp = []
         self.grp_curr = grp
+        
+        # debugging boolean variables
+        self.debug_tracking= IntVar()
+        self.debug_tracking.set(0)
+        
+        self.debug_bout = IntVar()
+        self.debug_bout.set(0)
+        
+        self.save_all_plots = IntVar()
+        self.save_all_plots.set(0)
         
         # run gui presets. may be unecessary
         self.init_gui()
@@ -1455,60 +1467,82 @@ class Expresso:
         
         #self.make_topmost()
         self.master.protocol("WM_DELETE_WINDOW", self.on_quit)
-        
+    
+    #===================================================================    
     def on_quit(self):
         """Exits program."""
         if tkMessageBox.askokcancel("Quit","Do you want to quit?"):
             self.master.destroy()
             self.master.quit()
     
+    #===================================================================
+    def toggle_track_debug(self):
+        """Turns on or off the tracking debug flags"""
+        curr_val = self.debug_tracking.get()
+        if curr_val == True:
+            self.debug_tracking.set(0)
+        elif curr_val == False:
+            self.debug_tracking.set(1)
+    
+    #===================================================================
+    def toggle_bout_debug(self):
+        """Turns on or off the tracking debug flags"""
+        curr_val = self.debug_bout.get()
+        if curr_val == True:
+            self.debug_bout.set(0)
+        elif curr_val == False:
+            self.debug_bout.set(1)
+    
+    #===================================================================
+    def toggle_save_all(self):
+        """Turns on or off the tracking debug flags"""
+        curr_val = self.save_all_plots.get()
+        if curr_val == True:
+            self.save_all_plots.set(0)
+        elif curr_val == False:
+            self.save_all_plots.set(1)
+    
+    #===================================================================     
     def make_topmost(self):
         """Makes this window the topmost window"""
         self.master.lift()
         self.master.attributes("-topmost", 1)
         self.master.attributes("-topmost", 0) 
-        
+    
+    #===================================================================    
     def init_gui(self):
         """Label for GUI"""
         
-        self.master.title('Expresso Data Analysis (rough version)')
+        self.master.title('Visual Expresso Data Analysis')
         
         """ Menu bar """
         self.master.option_add('*tearOff', 'FALSE')
         self.master.menubar = Menu(self.master)
- 
+        
         self.master.menu_file = Menu(self.master.menubar)
         self.master.menu_file.add_command(label='Exit', command=self.on_quit)
  
-        self.master.menu_edit = Menu(self.master.menubar)
- 
+        self.master.menu_debug = Menu(self.master.menubar)
+        self.master.menu_debug.add_checkbutton(label='Save All Plots', 
+                                               variable=self.save_all_plots,
+                                               command=self.toggle_save_all)
+        self.master.menu_debug.add_checkbutton(label='Bout Detection Debug', 
+                                               variable=self.debug_bout,
+                                               command=self.toggle_bout_debug)
+        self.master.menu_debug.add_checkbutton(label='Tracking Debug', 
+                                               variable=self.debug_tracking,
+                                               command = self.toggle_track_debug)
+        
         self.master.menubar.add_cascade(menu=self.master.menu_file, label='File')
-        self.master.menubar.add_cascade(menu=self.master.menu_edit, label='Edit')
+        self.master.menubar.add_cascade(menu=self.master.menu_debug, 
+                                        label='Debugging Options')
  
         self.master.config(menu=self.master.menubar)
         
         #self.master.config(background='white')
         
-        """ 
-        parent.title('Expresso Data Analysis (rough version)')
-        
-        parent.option_add('*tearOff', 'FALSE')
-        parent.menubar = Menu(parent)
- 
-        parent.menu_file = Menu(parent.menubar)
-        parent.menu_file.add_command(label='Exit', command=self.on_quit)
- 
-        parent.menu_edit = Menu(parent.menubar)
- 
-        parent.menubar.add_cascade(menu=parent.menu_file, label='File')
-        parent.menubar.add_cascade(menu=parent.menu_edit, label='Edit')
- 
-        parent.config(menu=parent.menubar)
-        #self.configure(background='dim gray')
-        #self.tk_setPalette(background=guiParams['bgcolor'],
-        #                   foreground=guiParams['textcolor']) 
-        """                   
-        
+    
+    #===================================================================    
     @staticmethod
     def get_dir(self):
         """ Method to return the directory selected by the user which should
@@ -1523,6 +1557,7 @@ class Expresso:
             self.datadir_curr = seldir
             return seldir
     
+    #===================================================================
     @staticmethod        
     def scan_dirs(self):
         # build list of detected files from selected paths
@@ -1550,7 +1585,8 @@ class Expresso:
                                 message='No HDF5 files found.')
             files = []
             return files 
-
+    
+    #===================================================================
     @staticmethod        
     def scan_dirs_vid(self):
         # build list of detected files from selected paths
@@ -1580,7 +1616,8 @@ class Expresso:
                                 message='No video files found.')
             files = []
             return files                                   
-            
+    
+    #===================================================================        
     @staticmethod 
     def unpack_files(self):
         selected_ind = sorted(self.fdata_frame.filelist.curselection(), reverse=False)
@@ -1604,6 +1641,7 @@ class Expresso:
         
         return fileKeyNames    
     
+    #===================================================================
     @staticmethod 
     def unpack_xp(self):
         selected_ind = sorted(self.xpdata_frame.xplist.curselection(), reverse=False)
@@ -1622,14 +1660,17 @@ class Expresso:
                                         ', ' + key) 
         return groupKeyNames
     
+    #===================================================================
     @staticmethod
     def clear_xplist(self):
         self.xpdata_frame.xplist.delete(0,END)
     
+    #===================================================================
     @staticmethod
     def clear_channellist(self):
         self.channeldata_frame.channellist.delete(0,END)
-             
+    
+    #===================================================================         
     @staticmethod
     def get_channel_data(self,channel_entry):
         filename, filekeyname, groupkeyname = channel_entry.split(', ',2)
@@ -1672,6 +1713,7 @@ class Expresso:
             print('Problem with loading data set--invalid name')
             return (dset, frames, t, dset_smooth, bouts, volumes)
     
+    #===================================================================
     @staticmethod
     def fetch_channels_for_batch(self):
         selected_ind = self.channeldata_frame.selection_ind
@@ -1686,7 +1728,7 @@ class Expresso:
         
         return for_batch
     
-     
+    #=================================================================== 
     @staticmethod
     def fetch_videos_for_batch(self):
         selected_ind = self.viddata_frame.selection_ind
@@ -1700,7 +1742,8 @@ class Expresso:
             for_batch.append(self.viddata_frame.filelist.get(ind))
         
         return for_batch
-        
+    
+    #===================================================================    
     @staticmethod
     def fetch_data_for_batch(self):
         selected_vid_ind = self.viddata_frame.selection_ind

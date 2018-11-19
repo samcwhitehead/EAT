@@ -220,29 +220,35 @@ def get_pixel2cm(img, vial_length_cm=4.42, vial_width_cm=1.22):
     return pix2cm
 #-----------------------------------------------------------------------------
 # beter version of find background
-def get_bg(filename,r,fly_size_range=[20,100],min_dist=40,morphSize=3,
-               debugFlag=True, verbose=True):
-                   
+def get_bg(filename, r, tracking_params=trackingParams, debugFlag=True,
+           verbose=True):
+    
+    fly_size_range = tracking_params['fly_size_range']  
+    morphSize = tracking_params['morph_size_1'] 
+    min_dist = tracking_params['bg_min_dist']       
+    varThresh = tracking_params['MOG_var_thresh'] 
+    t_offset = tracking_params['t_offset'] 
+    fly_pix_val_max = tracking_params['fly_pix_val_max']
+    
     if verbose:
         print("Finding background...")
                
     cap = cv2.VideoCapture(filename)
     N_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    varThresh= 125 #125 #75
     fgbg = cv2.createBackgroundSubtractorMOG2(varThreshold=varThresh, 
                                               detectShadows=False)
     
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(morphSize,morphSize))
     
+    # initialize data storage lists
     x_cm = [] 
     y_cm = [] 
     framenum_list = []
     mean_intensity = [] 
     mean_obj_val = np.array([])
-    #min_dist = 70
+    
     delta_cm = 0 
-    fly_pix_val_max = 100 
-    cc = 10
+    cc = t_offset
     cap.set(1,cc)
     
     # set up named window for debugging if requested
@@ -398,7 +404,7 @@ def get_bg(filename,r,fly_size_range=[20,100],min_dist=40,morphSize=3,
         print("BACKGROUND COULD NOT BE FOUND USING MOG; PERFORMING GUESS INSTEAD")
         mean_intensity_guess = np.mean(mean_intensity) 
         
-        cap.set(1,10)
+        cap.set(1,t_offset)
         _, frame_start = cap.read()
         im_start = cv2.cvtColor(frame_start, cv2.COLOR_BGR2GRAY)
         im_start = cv2.subtract(im_start,(np.mean(im_start)-mean_intensity_guess))
@@ -440,39 +446,48 @@ def get_bg(filename,r,fly_size_range=[20,100],min_dist=40,morphSize=3,
 
 #-----------------------------------------------------------------------------
 # get center of mass of fly from image ROI        
-def get_cm(filename,bg,r,fly_size_range=[20,100],morphSize=5,min_thresh=25, 
-           mean_intensity=130.0, ellipseFlag = False, debugFlag=True, 
-           verbose=True):
+def get_cm(filename,bg,r,tracking_params=trackingParams, mean_intensity=130.0,
+            min_thresh=25, ellipseFlag=False, debugFlag=True, verbose=True):
     
-    if verbose:
-        print('Finding center of mass coordinates for ' + filename + '...')           
-    cap = cv2.VideoCapture(filename)
-    N_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    # define params       
+    fly_size_range = tracking_params['fly_size_range']
+    morphSize = tracking_params['morph_size_2']
     
-    kernelRad = 3
+    # structuring element for morphological operations
+    kernelRad = tracking_params['morph_size_1']
     se = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(kernelRad,kernelRad))
-    se_dilate = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(2,2))
+    se_dilate = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,
+                                          (kernelRad-1,kernelRad-1))
     
+    # set up kalman filter
     kalman = cv2.KalmanFilter(4, 2, 0)
-    processNoiseLevel = 0.003
-    measurementNoiseLevel = 0.1 #0.1
+    processNoiseLevel = tracking_params['kalman_process_noise']
+    measurementNoiseLevel = tracking_params['kalman_meas_noise']
     
     kalman.measurementMatrix = np.array([[1,0,0,0],[0,1,0,0]],np.float32)
     kalman.transitionMatrix = np.array([[1,0,1,0],[0,1,0,1],[0,0,1,0],[0,0,0,1]],np.float32)
     kalman.processNoiseCov =  processNoiseLevel * np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]],np.float32)
     kalman.measurementNoiseCov = measurementNoiseLevel * np.array([[1,0],[0,1]],np.float32)
     
-    N_MISSING_MAX = 3 # number of predicted tracks to allow
+    N_MISSING_MAX = tracking_params['n_missing_max'] # number of predicted tracks to allow
+    N_INIT_IGNORE = tracking_params['n_init_ignore'] # number of initial points to skip kalman filtering
     N_MISSING_COUNTER = 0 
-    N_INIT_IGNORE = 25 # number of initial points to skip kalman filtering
     
-        #kalman.errorCovPost = 1. * np.ones((2, 2))
-        #kalman.statePost = 0.1 * np.random.randn(2, 1)
+    #kalman.errorCovPost = 1. * np.ones((2, 2))
+    #kalman.statePost = 0.1 * np.random.randn(2, 1)
     #se_erode = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(kernelRad,kernelRad))    
     #se_dilate = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(kernelRad+1,kernelRad+1))
    
     #searchRadius = 10 
     
+    if verbose:
+        print('Finding center of mass coordinates for ' + filename + '...')  
+
+    # load video         
+    cap = cv2.VideoCapture(filename)
+    N_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    
+    # initialize data lists
     x_cm = []
     y_cm = [] 
     #thresh_list = []
@@ -487,6 +502,7 @@ def get_cm(filename,bg,r,fly_size_range=[20,100],morphSize=5,min_thresh=25,
     xcm_curr = np.nan
     ycm_curr = np.nan
     
+    # progress bar for CM completion (something weird happening here)
     if verbose:
         widgets = [progressbar.FormatLabel('Finding CM:'), ' ', 
                    progressbar.Percentage(), ' ',
@@ -496,6 +512,10 @@ def get_cm(filename,bg,r,fly_size_range=[20,100],morphSize=5,min_thresh=25,
     
     if debugFlag:
         cv2.namedWindow('Finding CM...',cv2.WINDOW_NORMAL)
+    
+    #=============================
+    # main loop
+    #=============================
     ith = 0
     while ith < N_frames:
         
@@ -674,7 +694,7 @@ def visual_expresso_main(DATA_PATH, DATA_FILENAME, DEBUG_BG_FLAG=False,
         -ELLIPSE_FIT_FLAG = true or false; whether or not to fit ellipse to 
                             fly contour in order to estimate body angle
         -PARAMS = parameters used for tracking. these can be set in 
-                'expresso_gui_params.py'
+                'v_expresso_gui_params.py'
                         
     Outputs:
         -TBD
@@ -763,17 +783,20 @@ def visual_expresso_main(DATA_PATH, DATA_FILENAME, DEBUG_BG_FLAG=False,
     #=======================================
     # Estimate static background
     #=======================================
-    BG,_, _,mean_intensity,min_thresh_guess = get_bg(filename,ROI,
-                 fly_size_range=FLY_SIZE_RANGE, min_dist = BG_MIN_DIST, 
-                 debugFlag = DEBUG_BG_FLAG)
+    BG,_, _,mean_intensity,min_thresh_guess = get_bg(filename,ROI, 
+                                                     debugFlag = DEBUG_BG_FLAG)
             
     # if you want to plot background
     if DEBUG_BG_FLAG:
-        fig, ax = plt.subplots()
-        ax.imshow(BG,cmap='Greys')
-        ax.set_title(DATA_FILENAME)
-        plt.tight_layout()    
+        savename_prefix = os.path.splitext(DATA_FILENAME)[0]
+        bg_save_filename = os.path.join(SAVE_PATH,savename_prefix + "_BG.png")
+        #fig, ax = plt.subplots()
+        #ax.imshow(BG,cmap='Greys')
+        #ax.set_title(DATA_FILENAME)
+        #plt.tight_layout()    
+        #plt.savefig(bg_save_filename)
         
+        cv2.imwrite(bg_save_filename,BG)
     #=======================================
     # Get center of mass coordinates
     #=======================================
@@ -1336,7 +1359,7 @@ def save_vid_summary(VID_FILENAMES, CSV_FILENAME):
     
 #------------------------------------------------------------------------------
 
-def plot_body_cm(flyTrackData, plot_color=(1,0,0),
+def plot_body_cm(flyTrackData, plot_color=(1,0,0), SAVE_FLAG=False,
                  LABEL_FONTSIZE=trackingParams['label_fontsize']):
         
         # load data from fly tracking structure
@@ -1376,7 +1399,16 @@ def plot_body_cm(flyTrackData, plot_color=(1,0,0),
         #             np.nanmax(xcm_smoothed_list[mth])])
         #ax.set_ylim([np.nanmin(ycm_smoothed_list[mth]), 
         #             np.nanmax(ycm_smoothed_list[mth])])
-                    
+        
+        if SAVE_FLAG:
+            SAVE_PATH = flyTrackData['filepath']
+            savename_prefix = os.path.splitext(DATA_FILENAME)[0]
+            save_filename_vs_t = os.path.join(SAVE_PATH,savename_prefix + \
+                                                            "_xy_vs_t.png")
+            save_filename_xy = os.path.join(SAVE_PATH,savename_prefix + \
+                                                            "_y_vs_x.png")
+            fig_vs_t.savefig(save_filename_vs_t)
+            fig_spatial.savefig(save_filename_xy)
 #------------------------------------------------------------------------------
                     
 def plot_body_vel(flyTrackData, plot_color=(1,0,0),
