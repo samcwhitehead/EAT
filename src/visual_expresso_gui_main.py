@@ -477,8 +477,11 @@ class ChannelDataFrame(Frame):
                                 message='Please select only one channel for plotting individual traces')
             return 
         
+        menu_debug_flag = parent.debug_bout.get()
         channel_entry = self.channellist.get(selected_ind[0])
-        dset, frames, t, dset_smooth, bouts, volumes = Expresso.get_channel_data(parent,channel_entry) 
+        dset, frames, t, dset_smooth, bouts, volumes = \
+                            Expresso.get_channel_data(parent,channel_entry,
+                                                    DEBUG_FLAG=menu_debug_flag) 
         
         if dset.size != 0:   
             (dset,frames)
@@ -552,6 +555,13 @@ class ChannelDataFrame(Frame):
             
             self.fig.canvas.set_window_title(self.channel_name_full)    
             
+            menu_save_flag = parent.save_all_plots.get()
+            if menu_save_flag:
+                filename_no_ext = os.path.splitext(filename)
+                save_filename = filename_no_ext + '_' + filekeyname + "_" + \
+                                    groupkeyname + '_bout_detection.png'
+                savename_full = os.path.join(dirpath,save_filename)
+                self.fig.savefig(savename_full)
             #self.save_button['state'] = 'normal'
             #self.cursor = matplotlib.widgets.MultiCursor(self.fig.canvas, (self.ax1, self.ax2), 
             #                                        color='black', linewidth=1, 
@@ -572,7 +582,8 @@ class ChannelDataFrame(Frame):
         
         full_channellist_entry = self.channellist.get(selected_ind[0])
         
-        _, _, self.t, _, self.bouts, self.volumes = Expresso.get_channel_data(parent,full_channellist_entry)
+        _, _, self.t, _, self.bouts, self.volumes = \
+                    Expresso.get_channel_data(parent,full_channellist_entry)
         
         #full_channellist_entry = self.channellist.get(self.selection_ind[0])
         filepath, filekeyname, groupkeyname = full_channellist_entry.split(', ',2)
@@ -774,18 +785,18 @@ class VideoDataFrame(Frame):
             
             if self.vid_filepath == file_entry:
                 plot_body_cm(self.flyTrackData_smooth,SAVE_FLAG=menu_save_flag)
-                plot_body_vel(self.flyTrackData_smooth) 
-                plot_moving_v_still(self.flyTrackData_smooth)
-                plot_cum_dist(self.flyTrackData_smooth)
+                plot_body_vel(self.flyTrackData_smooth,SAVE_FLAG=menu_save_flag) 
+                plot_moving_v_still(self.flyTrackData_smooth,SAVE_FLAG=menu_save_flag)
+                plot_cum_dist(self.flyTrackData_smooth,SAVE_FLAG=menu_save_flag)
             elif os.path.exists(save_filename):
                 self.vid_filepath = file_entry
                 _, track_filename = os.path.split(save_filename)
                 self.flyTrackData_smooth = \
                                 hdf5_to_flyTrackData(file_path, track_filename)
                 plot_body_cm(self.flyTrackData_smooth,SAVE_FLAG=menu_save_flag)
-                plot_body_vel(self.flyTrackData_smooth) 
-                plot_moving_v_still(self.flyTrackData_smooth)
-                plot_cum_dist(self.flyTrackData_smooth)
+                plot_body_vel(self.flyTrackData_smooth,SAVE_FLAG=menu_save_flag) 
+                plot_moving_v_still(self.flyTrackData_smooth,SAVE_FLAG=menu_save_flag)
+                plot_cum_dist(self.flyTrackData_smooth,SAVE_FLAG=menu_save_flag)
             else:
                 tkMessageBox.showinfo(title='Error',
                                 message='Please analyze this video first ' + \
@@ -1672,7 +1683,7 @@ class Expresso:
     
     #===================================================================         
     @staticmethod
-    def get_channel_data(self,channel_entry):
+    def get_channel_data(self,channel_entry,DEBUG_FLAG=False):
         filename, filekeyname, groupkeyname = channel_entry.split(', ',2)
         dset, t = load_hdf5(filename,filekeyname,groupkeyname)        
         
@@ -1701,7 +1712,8 @@ class Expresso:
         frames = new_frames
         
         try:
-            dset_smooth, bouts, volumes = bout_analysis(dset,frames)
+            dset_smooth, bouts, volumes = bout_analysis(dset,frames,
+                                                        debug_mode=DEBUG_FLAG)
             return (dset, frames, t, dset_smooth, bouts, volumes)
         except NameError:
             dset = np.array([])

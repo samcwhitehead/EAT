@@ -218,6 +218,33 @@ def get_pixel2cm(img, vial_length_cm=4.42, vial_width_cm=1.22):
     
     pix2cm = np.mean([vial_length_cm/vial_length_px,vial_width_cm/vial_width_px])
     return pix2cm
+    
+#-----------------------------------------------------------------------------
+# pad cv2 rectangle
+def enlarge_bbox(frame, bbox, padding):
+    # unpack and pad tuple
+    (x, y, w, h) = bbox
+    x = x - padding
+    y = y - padding
+    w = w + 2*padding
+    h = h + 2*padding
+    
+    # make sure that padding hasn't gone beyond frame size
+    imsize_row, imsize_col = frame.shape
+    if x < 0:
+        x = 0 
+    if y < 0:
+        y = 0 
+    if x + w >= imsize_col:
+        w = imsize_col - x
+    if y + h >= imsize_row:
+        h = imsize_row - y
+    
+    #repack new tuple
+    bbox_out = (x, y, w, h)
+    
+    return bbox_out
+    
 #-----------------------------------------------------------------------------
 # beter version of find background
 def get_bg(filename, r, tracking_params=trackingParams, debugFlag=True,
@@ -229,9 +256,7 @@ def get_bg(filename, r, tracking_params=trackingParams, debugFlag=True,
     varThresh = tracking_params['MOG_var_thresh'] 
     t_offset = tracking_params['t_offset'] 
     fly_pix_val_max = tracking_params['fly_pix_val_max']
-    
-    if verbose:
-        print("Finding background...")
+    min_pix_thresh = tracking_params['min_pix_thresh']
                
     cap = cv2.VideoCapture(filename)
     N_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -240,12 +265,20 @@ def get_bg(filename, r, tracking_params=trackingParams, debugFlag=True,
     
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(morphSize,morphSize))
     
+    if verbose:
+        widgets = ['Finding background: ', progressbar.Percentage(),progressbar.Bar()]  
+        pbar = progressbar.ProgressBar(widgets=widgets, 
+                                       maxval=(N_frames-1)).start() 
+    #    print("Finding background...")
     # initialize data storage lists
     x_cm = [] 
     y_cm = [] 
     framenum_list = []
     mean_intensity = [] 
     mean_obj_val = np.array([])
+    bbox_list = [] 
+    bbox_pad = 10
+    N_bbox_max = 500 
     
     delta_cm = 0 
     cc = t_offset
@@ -298,14 +331,21 @@ def get_bg(filename, r, tracking_params=trackingParams, debugFlag=True,
                                         obj_val_grand_mean)/obj_val_grand_std
                     
                     #print('Current: {}, previous mean +/- std: {} +/- {}'.format(mean_obj_val_curr, obj_val_grand_mean,obj_val_grand_std))
-                    # is the current pixel val > 5 sigma away from usual val?                    
+                    # is the current pixel val > 5 sigma away from usual val? 
                     if obj_val_diff_test < 5:
                         M = cv2.moments(c)
                         x_cm.append(M['m10']/M['m00'])
                         y_cm.append(M['m01']/M['m00'])
                         
+                        # get bounding box for this contour
+                        bbox_curr = cv2.boundingRect(c)
+                        bbox_list.append(bbox_curr)
+                        
+                        # record frame number
                         framenum_list.append(cc)
-                        mean_obj_val = np.append(mean_obj_val,mean_obj_val_curr)
+                    
+                    # even if you don't track the cm, add the intensity to list
+                    mean_obj_val = np.append(mean_obj_val,mean_obj_val_curr)
                 
                 else:
                     if mean_obj_val_curr < fly_pix_val_max:
@@ -313,6 +353,11 @@ def get_bg(filename, r, tracking_params=trackingParams, debugFlag=True,
                         x_cm.append(M['m10']/M['m00'])
                         y_cm.append(M['m01']/M['m00'])
                         
+                        # get bounding box for this contour
+                        bbox_curr = cv2.boundingRect(c)
+                        bbox_list.append(bbox_curr)
+                        
+                        # record frame number
                         framenum_list.append(cc)
                         mean_obj_val = np.append(mean_obj_val,mean_obj_val_curr)
                         
@@ -323,8 +368,10 @@ def get_bg(filename, r, tracking_params=trackingParams, debugFlag=True,
                     #D = squareform(D);
                     delta_cm = np.nanmax(D)
             
-            if verbose and (np.mod(cc,50) == 0):
-                print("Find BG: " + str(cc) + "/" +  str(N_frames) + " completed")
+            #if verbose and (np.mod(cc,50) == 0):
+            if verbose:
+                #print("Find BG: " + str(cc) + "/" +  str(N_frames) + " completed")
+                pbar.update(cc)   
             
             
         cc+=1
@@ -355,7 +402,7 @@ def get_bg(filename, r, tracking_params=trackingParams, debugFlag=True,
         _, frame_t2 = cap.read()
         imt2 = cv2.cvtColor(frame_t2, cv2.COLOR_BGR2GRAY)
         
-        # normalize to our ghess for mean intensity
+        # normalize to our guess for mean intensity
         mean_intensity_guess = np.mean(mean_intensity) 
         
         imt1 = cv2.subtract(imt1,(np.mean(imt1)-mean_intensity_guess))
@@ -377,22 +424,60 @@ def get_bg(filename, r, tracking_params=trackingParams, debugFlag=True,
                 #print('case 2')
         
         # try to guess min_thresh for get_cm
-        cap.set(1,framenum_list[t2-1])
-        _, frame_t3 = cap.read()
-        imt3 = cv2.cvtColor(frame_t3, cv2.COLOR_BGR2GRAY)
-        #imt3 = get_cropped_im(imt3,r) #imt3[int(r[1]):int(r[1]+r[3]), int(r[0]):int(r[0]+r[2])]
-        imt3 = cv2.subtract(imt3,(np.mean(imt3)-mean_intensity_guess))        
+        #cap.set(1,framenum_list[t2-1])
+        #_, frame_t3 = cap.read()
+        #imt3 = cv2.cvtColor(frame_t3, cv2.COLOR_BGR2GRAY)
+        #imt3 = cv2.subtract(imt3,(np.mean(imt3)-mean_intensity_guess))        
+        #test_sub = cv2.absdiff(bg,imt3)
         
-        test_sub = cv2.absdiff(bg,imt3)
+        # retrieve bounding box for t2 (should be ~ correct for t3)
+        N_bbox = np.min([N_bbox_max, len(framenum_list)])
+        rand_idx = np.random.randint(0,high=len(framenum_list),size=N_bbox)
+        otsu_thresh_arr = np.array([])
+        for ridx in rand_idx:
+            # get the frame
+            framenum_curr = framenum_list[ridx]
+            cap.set(1,framenum_curr)
+            _, frame_curr = cap.read()
+            
+            # subtract background
+            im_curr = cv2.cvtColor(frame_curr, cv2.COLOR_BGR2GRAY)
+            im_curr = cv2.subtract(im_curr,(np.mean(im_curr)-mean_intensity_guess))        
+            bg_sub_curr = cv2.absdiff(bg,im_curr)
+            # get bounding box and crop
+            bbox_curr = bbox_list[ridx]
+            bbox_curr_pad = enlarge_bbox(bg_sub_curr, bbox_curr, bbox_pad)
+            bg_sub_curr_crop = get_cropped_im(bg_sub_curr,bbox_curr_pad)
+            bg_sub_curr_crop = cv2.GaussianBlur(bg_sub_curr_crop,(5,5),0)
+            
+            # get otsu threshold            
+            otsu_thresh, _ = cv2.threshold(bg_sub_curr_crop, \
+                                0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            otsu_thresh_arr = np.append(otsu_thresh_arr, otsu_thresh)
+                                
+        #test_sub = cv2.subtract(bg,imt3)
         
-        test_sub = test_sub.ravel() 
-        test_sub_sym = np.append(test_sub,-1*test_sub)
-        min_thresh_guess = np.min([11*robust.mad(test_sub_sym),25])
+        #test_sub = test_sub.ravel() 
+        #test_sub_sym = np.append(test_sub,-1*test_sub)
+        
+        #mean_otsu = np.mean(otsu_thresh_arr)
+        std_otsu = np.std(otsu_thresh_arr)
+        min_otsu = np.min(otsu_thresh_arr)
+        otsu_low_bound = min_otsu - std_otsu
+        #min_thresh_guess = np.min([11*robust.mad(test_sub_sym),min_pix_thresh]) 
+        min_thresh_guess = np.min([otsu_low_bound,min_pix_thresh]) 
         #print('mean = {:f}'.format(np.mean(test_sub_sym)))
         #print('std = {:f}'.format(np.std(test_sub_sym)))
         min_thresh_guess = int(min_thresh_guess)
         
+        pbar.finish()
         cap.release()
+        
+        print(min_thresh_guess)
+        #if debugFlag:
+        #    fig, ax = plt.subplots()
+        #    ax.hist(otsu_thresh_arr,100)
+        #    print('Mean = {} , STD = {}'.format(np.mean(otsu_thresh_arr),np.std(otsu_thresh_arr)))
         #cv2.namedWindow('Background', cv2.WINDOW_NORMAL)
         #cv2.imshow('Background',bg)
         #cv2.waitKey(20)
@@ -435,7 +520,7 @@ def get_bg(filename, r, tracking_params=trackingParams, debugFlag=True,
         test_sub = cv2.absdiff(bg,im_end)
         test_sub = test_sub.ravel() 
         test_sub_sym = np.append(test_sub,-1*test_sub)
-        min_thresh_guess = min_thresh_guess = np.min([11*robust.mad(test_sub_sym),25])
+        min_thresh_guess = np.min([11*robust.mad(test_sub_sym),min_pix_thresh]) #25
         #print('mean = {:f}'.format(np.mean(test_sub_sym)))
         #print('std = {:f}'.format(np.std(test_sub_sym)))
         min_thresh_guess = int(min_thresh_guess)
@@ -480,8 +565,8 @@ def get_cm(filename,bg,r,tracking_params=trackingParams, mean_intensity=130.0,
    
     #searchRadius = 10 
     
-    if verbose:
-        print('Finding center of mass coordinates for ' + filename + '...')  
+    #if verbose:
+    #    print('Finding center of mass coordinates for %s...\n' % filename)  
 
     # load video         
     cap = cv2.VideoCapture(filename)
@@ -504,11 +589,10 @@ def get_cm(filename,bg,r,tracking_params=trackingParams, mean_intensity=130.0,
     
     # progress bar for CM completion (something weird happening here)
     if verbose:
-        widgets = [progressbar.FormatLabel('Finding CM:'), ' ', 
-                   progressbar.Percentage(), ' ',
-                   progressbar.Bar('/'), ' ', progressbar.RotatingMarker()]
-        pbar = progressbar.ProgressBar(widgets=widgets, maxval=(N_frames-1))
-        pbar.start()
+        widgets = ['Finding CM: ', progressbar.Percentage(), progressbar.Bar()]  
+        pbar = progressbar.ProgressBar(widgets=widgets, 
+                                       maxval=(N_frames-1)).start() 
+        
     
     if debugFlag:
         cv2.namedWindow('Finding CM...',cv2.WINDOW_NORMAL)
@@ -519,7 +603,8 @@ def get_cm(filename,bg,r,tracking_params=trackingParams, mean_intensity=130.0,
     ith = 0
     while ith < N_frames:
         
-        if verbose and (np.mod(ith,50) == 0):
+        #if verbose and (np.mod(ith,50) == 0):
+        if verbose:
            #print("Find CM: " + str(ith) + "/" +  str(N_frames) + " completed")
             pbar.update(ith)   
        
@@ -530,7 +615,6 @@ def get_cm(filename,bg,r,tracking_params=trackingParams, mean_intensity=130.0,
     
         im_minus_bg = cv2.absdiff(bg,im1)
         im_minus_bg = cv2.GaussianBlur(im_minus_bg,(morphSize,morphSize),0)
-        
         
         otsu_thresh, _ = cv2.threshold(im_minus_bg.astype('uint8'), \
                                 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
@@ -543,7 +627,7 @@ def get_cm(filename,bg,r,tracking_params=trackingParams, mean_intensity=130.0,
         th_otsu = cv2.morphologyEx(th_otsu, cv2.MORPH_OPEN, se)
         th_otsu = cv2.morphologyEx(th_otsu, cv2.MORPH_CLOSE, se)
         #th_otsu = cv2.erode(th_otsu, se_erode, iterations=1)  
-        th_otsu = cv2.dilate(th_otsu, se_dilate, iterations=1)
+        th_otsu = cv2.dilate(th_otsu, se_dilate, iterations=2)
         
         #---------------------------------------------------
         # fit contour to image, check results
@@ -1200,6 +1284,7 @@ def hdf5_to_flyTrackData(DATA_PATH, DATA_FILENAME):
         flyTrackData['cap_tip'] = f['CAP_TIP']['cap_tip'].value
         flyTrackData['cap_tip_orientation'] = \
                         f['CAP_TIP']['cap_tip_orientation'].value
+        flyTrackData['BG'] = f['BG']['bg'].value
         
         flyTrackData['PIX2CM'] = f['Params']['pix2cm'].value
         flyTrackData['trackingParams'] = ast.literal_eval(f['Params']['trackingParams'].value)
@@ -1361,159 +1446,188 @@ def save_vid_summary(VID_FILENAMES, CSV_FILENAME):
 
 def plot_body_cm(flyTrackData, plot_color=(1,0,0), SAVE_FLAG=False,
                  LABEL_FONTSIZE=trackingParams['label_fontsize']):
-        
-        # load data from fly tracking structure
-        t = flyTrackData['t']
-        xcm = flyTrackData['xcm']
-        ycm = flyTrackData['ycm']
-        xcm_smooth = flyTrackData['xcm_smooth']
-        ycm_smooth = flyTrackData['ycm_smooth']
-        DATA_FILENAME = flyTrackData['filename']
-        
-        # X vs t and Y vs t
-        fig_vs_t, (ax0,ax1) = plt.subplots(2,1,sharex=True,figsize=(12,7))
-        ax0.plot(t,xcm,'k.',markersize=2,label='raw')
-        ax1.plot(t,ycm,'k.',markersize=2,label='raw')
-        
-        ax0.plot(t,xcm_smooth,color=plot_color,label='smoothed')
-        ax1.plot(t,ycm_smooth,color=plot_color,label='smoothed')
     
-        ax1.set_xlabel('Time [s]',fontsize=LABEL_FONTSIZE)
-        ax0.set_ylabel('X [cm]',fontsize=LABEL_FONTSIZE)
-        ax1.set_ylabel('Y [cm]',fontsize=LABEL_FONTSIZE)
-        ax0.set_title( DATA_FILENAME)
-        
-        ax0.set_xlim([np.amin(t),np.amax(t)])
-        ax0.legend(loc='upper right')
-        ax1.legend(loc='upper right')
-        plt.tight_layout()
-        
-        # Y vs X
-        fig_spatial, ax = plt.subplots(figsize=(3.6,8.0))
-        ax.plot(xcm_smooth,ycm_smooth,color=plot_color)
-        ax.set_xlabel('X [cm]',fontsize=LABEL_FONTSIZE)
-        ax.set_ylabel('Y [cm]',fontsize=LABEL_FONTSIZE)
-        ax.set_title( DATA_FILENAME)
-        plt.axis('equal')
-        #ax.set_xlim([np.nanmin(xcm_smoothed_list[mth]), 
-        #             np.nanmax(xcm_smoothed_list[mth])])
-        #ax.set_ylim([np.nanmin(ycm_smoothed_list[mth]), 
-        #             np.nanmax(ycm_smoothed_list[mth])])
-        
-        if SAVE_FLAG:
-            SAVE_PATH = flyTrackData['filepath']
-            savename_prefix = os.path.splitext(DATA_FILENAME)[0]
-            save_filename_vs_t = os.path.join(SAVE_PATH,savename_prefix + \
-                                                            "_xy_vs_t.png")
-            save_filename_xy = os.path.join(SAVE_PATH,savename_prefix + \
-                                                            "_y_vs_x.png")
-            fig_vs_t.savefig(save_filename_vs_t)
-            fig_spatial.savefig(save_filename_xy)
+    # load data from fly tracking structure
+    t = flyTrackData['t']
+    xcm = flyTrackData['xcm']
+    ycm = flyTrackData['ycm']
+    xcm_smooth = flyTrackData['xcm_smooth']
+    ycm_smooth = flyTrackData['ycm_smooth']
+    DATA_FILENAME = flyTrackData['filename']
+    
+    # X vs t and Y vs t
+    fig_vs_t, (ax0,ax1) = plt.subplots(2,1,sharex=True,figsize=(12,7))
+    ax0.plot(t,xcm,'k.',markersize=2,label='raw')
+    ax1.plot(t,ycm,'k.',markersize=2,label='raw')
+    
+    ax0.plot(t,xcm_smooth,color=plot_color,label='smoothed')
+    ax1.plot(t,ycm_smooth,color=plot_color,label='smoothed')
+
+    ax1.set_xlabel('Time [s]',fontsize=LABEL_FONTSIZE)
+    ax0.set_ylabel('X [cm]',fontsize=LABEL_FONTSIZE)
+    ax1.set_ylabel('Y [cm]',fontsize=LABEL_FONTSIZE)
+    ax0.set_title( DATA_FILENAME)
+    
+    ax0.set_xlim([np.amin(t),np.amax(t)])
+    ax0.legend(loc='upper right')
+    ax1.legend(loc='upper right')
+    plt.tight_layout()
+    
+    # Y vs X
+    fig_spatial, ax = plt.subplots(figsize=(3.6,8.0))
+    ax.plot(xcm_smooth,ycm_smooth,color=plot_color)
+    ax.set_xlabel('X [cm]',fontsize=LABEL_FONTSIZE)
+    ax.set_ylabel('Y [cm]',fontsize=LABEL_FONTSIZE)
+    ax.set_title( DATA_FILENAME)
+    plt.axis('equal')
+    #ax.set_xlim([np.nanmin(xcm_smoothed_list[mth]), 
+    #             np.nanmax(xcm_smoothed_list[mth])])
+    #ax.set_ylim([np.nanmin(ycm_smoothed_list[mth]), 
+    #             np.nanmax(ycm_smoothed_list[mth])])
+    
+    if SAVE_FLAG:
+        SAVE_PATH = flyTrackData['filepath']
+        savename_prefix = os.path.splitext(DATA_FILENAME)[0]
+        save_filename_vs_t = os.path.join(SAVE_PATH,savename_prefix + \
+                                                        "_xy_vs_t.png")
+        save_filename_xy = os.path.join(SAVE_PATH,savename_prefix + \
+                                                        "_y_vs_x.png")
+        fig_vs_t.savefig(save_filename_vs_t)
+        fig_spatial.savefig(save_filename_xy)
 #------------------------------------------------------------------------------
                     
-def plot_body_vel(flyTrackData, plot_color=(1,0,0),
+def plot_body_vel(flyTrackData, plot_color=(1,0,0), SAVE_FLAG=False,
                  LABEL_FONTSIZE=trackingParams['label_fontsize']):   
         
-        # load data from fly tracking structure
-        t = flyTrackData['t']
-        xcm_vel = flyTrackData['xcm_vel']
-        ycm_vel = flyTrackData['ycm_vel']
-        DATA_FILENAME = flyTrackData['filename']
+    # load data from fly tracking structure
+    t = flyTrackData['t']
+    xcm_vel = flyTrackData['xcm_vel']
+    ycm_vel = flyTrackData['ycm_vel']
+    DATA_FILENAME = flyTrackData['filename']
+        
+    # velX vs t and velY vs t
+    fig_vel_vs_t, (ax0,ax1) = plt.subplots(2,1,sharex=True,figsize=(12,7))
+    ax0.plot(t,xcm_vel,color=plot_color)
+    ax1.plot(t,ycm_vel,color=plot_color)
+    
+    #ax0.set_xlabel('Time [s]',fontsize=LABEL_FONTSIZE)
+    ax1.set_xlabel('Time [s]',fontsize=LABEL_FONTSIZE)
+    ax0.set_ylabel('X Vel. [cm/s]',fontsize=LABEL_FONTSIZE)
+    ax1.set_ylabel('Y Vel. [cm/s]',fontsize=LABEL_FONTSIZE)
+    ax0.set_title(DATA_FILENAME)
+    
+    ax0.set_xlim([np.amin(t),np.amax(t)])
+    #ax0.set_xlim([np.amin(t),60])
+    plt.tight_layout()
+    
+    if SAVE_FLAG:
+        SAVE_PATH = flyTrackData['filepath']
+        savename_prefix = os.path.splitext(DATA_FILENAME)[0]
+        save_filename = os.path.join(SAVE_PATH,savename_prefix + \
+                                                        "_vel_vs_t.png")
+        fig_vel_vs_t.savefig(save_filename)
             
-        # velX vs t and velY vs t
-        fig_vel_vs_t, (ax0,ax1) = plt.subplots(2,1,sharex=True,figsize=(12,7))
-        ax0.plot(t,xcm_vel,color=plot_color)
-        ax1.plot(t,ycm_vel,color=plot_color)
-        
-        #ax0.set_xlabel('Time [s]',fontsize=LABEL_FONTSIZE)
-        ax1.set_xlabel('Time [s]',fontsize=LABEL_FONTSIZE)
-        ax0.set_ylabel('X Vel. [cm/s]',fontsize=LABEL_FONTSIZE)
-        ax1.set_ylabel('Y Vel. [cm/s]',fontsize=LABEL_FONTSIZE)
-        ax0.set_title(DATA_FILENAME)
-        
-        ax0.set_xlim([np.amin(t),np.amax(t)])
-        #ax0.set_xlim([np.amin(t),60])
-        plt.tight_layout()
-
 #------------------------------------------------------------------------------
     
-def plot_body_angle(flyTrackData, plot_color=(1,0,0),
+def plot_body_angle(flyTrackData, plot_color=(1,0,0), SAVE_FLAG=False,
                  LABEL_FONTSIZE=trackingParams['label_fontsize']):  
                 
-        # load data from fly tracking structure
-        t = flyTrackData['t']
-        xcm_vel = flyTrackData['xcm_vel']
-        ycm_vel = flyTrackData['ycm_vel']
-        body_angle = flyTrackData['body_angle']
-        DATA_FILENAME = flyTrackData['filename']
-        
-        # body angle vs t
-        fig_angle_vs_t, (ax0,ax1) = plt.subplots(2,1,sharex=True,figsize=(12,7))
-        ax0.plot(t,body_angle,color=plot_color)
-        ax1.plot(t,(180.0/np.pi)*np.arctan2(ycm_vel,xcm_vel), color=plot_color)
-        
-        
-        #ax0.set_xlabel('Time [s]',fontsize=LABEL_FONTSIZE)
-        ax1.set_xlabel('Time [s]',fontsize=LABEL_FONTSIZE)
-        ax0.set_ylabel('Angle from ellipse [deg]',fontsize=LABEL_FONTSIZE)
-        ax1.set_ylabel('Angle from vel. [deg]',fontsize=LABEL_FONTSIZE)
-        ax0.set_title(DATA_FILENAME)
-        
-        ax0.set_xlim([np.amin(t),np.amax(t)])
-        plt.tight_layout()        
+    # load data from fly tracking structure
+    t = flyTrackData['t']
+    xcm_vel = flyTrackData['xcm_vel']
+    ycm_vel = flyTrackData['ycm_vel']
+    body_angle = flyTrackData['body_angle']
+    DATA_FILENAME = flyTrackData['filename']
+    
+    # body angle vs t
+    fig_angle_vs_t, (ax0,ax1) = plt.subplots(2,1,sharex=True,figsize=(12,7))
+    ax0.plot(t,body_angle,color=plot_color)
+    ax1.plot(t,(180.0/np.pi)*np.arctan2(ycm_vel,xcm_vel), color=plot_color)
+    
+    
+    #ax0.set_xlabel('Time [s]',fontsize=LABEL_FONTSIZE)
+    ax1.set_xlabel('Time [s]',fontsize=LABEL_FONTSIZE)
+    ax0.set_ylabel('Angle from ellipse [deg]',fontsize=LABEL_FONTSIZE)
+    ax1.set_ylabel('Angle from vel. [deg]',fontsize=LABEL_FONTSIZE)
+    ax0.set_title(DATA_FILENAME)
+    
+    ax0.set_xlim([np.amin(t),np.amax(t)])
+    plt.tight_layout()
 
+    if SAVE_FLAG:
+        SAVE_PATH = flyTrackData['filepath']
+        savename_prefix = os.path.splitext(DATA_FILENAME)[0]
+        save_filename = os.path.join(SAVE_PATH,savename_prefix + \
+                                                        "_angle_vs_t.png")
+        fig_angle_vs_t.savefig(save_filename)        
+
+        
 #------------------------------------------------------------------------------
 
-def plot_moving_v_still(flyTrackData, plot_color=(1,0,0),
+def plot_moving_v_still(flyTrackData, plot_color=(1,0,0), SAVE_FLAG=False,
                  LABEL_FONTSIZE=trackingParams['label_fontsize']):
         
-        # load data from fly tracking structure
-        t = flyTrackData['t']
-        vel_mag = flyTrackData['vel_mag']
-        moving_ind = flyTrackData['moving_ind']
-        DATA_FILENAME = flyTrackData['filename']
-        trackingParams = flyTrackData['trackingParams']
-        VEL_THRESH = trackingParams['vel_thresh']
-        
-        # velocity magnitude separated by moving vs still
-        fig_moving, ax0 = plt.subplots(1,1,figsize=(12,3))
-        ax0.plot(t[moving_ind], vel_mag[moving_ind],'.',color=plot_color)
-        ax0.plot(t[np.logical_not(moving_ind)], 
-                   vel_mag[np.logical_not(moving_ind)], '.',
-                    color=tuple([0.5, 0.5, 0.5 ]))
-        ax0.plot(t,VEL_THRESH*np.ones(t.shape),'k--')
-       
-        
-        ax0.set_xlabel('Time [s]',fontsize=LABEL_FONTSIZE)
-        ax0.set_ylabel('Speed [cm/s]',fontsize=LABEL_FONTSIZE)
-        ax0.set_title(DATA_FILENAME)
-        
-        ax0.set_xlim([np.amin(t),np.amax(t)])
-        plt.tight_layout()
+    # load data from fly tracking structure
+    t = flyTrackData['t']
+    vel_mag = flyTrackData['vel_mag']
+    moving_ind = flyTrackData['moving_ind']
+    DATA_FILENAME = flyTrackData['filename']
+    trackingParams = flyTrackData['trackingParams']
+    VEL_THRESH = trackingParams['vel_thresh']
+    
+    # velocity magnitude separated by moving vs still
+    fig_moving, ax0 = plt.subplots(1,1,figsize=(12,3))
+    ax0.plot(t[moving_ind], vel_mag[moving_ind],'.',color=plot_color)
+    ax0.plot(t[np.logical_not(moving_ind)], 
+               vel_mag[np.logical_not(moving_ind)], '.',
+                color=tuple([0.5, 0.5, 0.5 ]))
+    ax0.plot(t,VEL_THRESH*np.ones(t.shape),'k--')
+   
+    
+    ax0.set_xlabel('Time [s]',fontsize=LABEL_FONTSIZE)
+    ax0.set_ylabel('Speed [cm/s]',fontsize=LABEL_FONTSIZE)
+    ax0.set_title(DATA_FILENAME)
+    
+    ax0.set_xlim([np.amin(t),np.amax(t)])
+    plt.tight_layout()
+    
+    if SAVE_FLAG:
+        SAVE_PATH = flyTrackData['filepath']
+        savename_prefix = os.path.splitext(DATA_FILENAME)[0]
+        save_filename = os.path.join(SAVE_PATH,savename_prefix + \
+                                                        "_moving.png")
+        fig_moving.savefig(save_filename)   
 
 #------------------------------------------------------------------------------
   
-def plot_cum_dist(flyTrackData, plot_color=(1,0,0),
+def plot_cum_dist(flyTrackData, plot_color=(1,0,0), SAVE_FLAG=False,
                  LABEL_FONTSIZE=trackingParams['label_fontsize']):
             
-        # load data from fly tracking structure
-        t = flyTrackData['t']
-        cum_dist = flyTrackData['cum_dist']
-        DATA_FILENAME = flyTrackData['filename']
-        
-        # cumulative distance vs time
-        fig_cum_dist, ax0 = plt.subplots(1,1,figsize=(7,6))
-        ax0.plot(t,cum_dist,color=plot_color)
-        
-        ax0.set_xlabel('Time [s]',fontsize=LABEL_FONTSIZE)
-        
-        ax0.set_ylabel('Cumulative Dist. [cm]',fontsize=LABEL_FONTSIZE)
-        ax0.set_title(DATA_FILENAME)
-        ax0.set_xlim([np.amin(t),np.amax(t)])
-        plt.tight_layout()  
+    # load data from fly tracking structure
+    t = flyTrackData['t']
+    cum_dist = flyTrackData['cum_dist']
+    DATA_FILENAME = flyTrackData['filename']
+    
+    # cumulative distance vs time
+    fig_cum_dist, ax0 = plt.subplots(1,1,figsize=(7,6))
+    ax0.plot(t,cum_dist,color=plot_color)
+    
+    ax0.set_xlabel('Time [s]',fontsize=LABEL_FONTSIZE)
+    
+    ax0.set_ylabel('Cumulative Dist. [cm]',fontsize=LABEL_FONTSIZE)
+    ax0.set_title(DATA_FILENAME)
+    ax0.set_xlim([np.amin(t),np.amax(t)])
+    plt.tight_layout()  
+    
+    if SAVE_FLAG:
+        SAVE_PATH = flyTrackData['filepath']
+        savename_prefix = os.path.splitext(DATA_FILENAME)[0]
+        save_filename = os.path.join(SAVE_PATH,savename_prefix + \
+                                                        "_cum_dist.png")
+        fig_cum_dist.savefig(save_filename)   
         
 #------------------------------------------------------------------------------
-def batch_plot_cum_dist(VID_FILENAMES,
+def batch_plot_cum_dist(VID_FILENAMES, SAVE_FLAG = False,
                         LABEL_FONTSIZE=trackingParams['label_fontsize']):    
     h5_filenames = [] 
     fig_cum_dist, ax_cum_dist = plt.subplots(1,1,figsize=(8,6))
@@ -1559,10 +1673,13 @@ def batch_plot_cum_dist(VID_FILENAMES,
     plt.legend(loc='upper left',fontsize='x-small')
     plt.tight_layout()
     plt.show() 
+    
+    if SAVE_FLAG:
+        print('under construction')
 
 #------------------------------------------------------------------------------
 
-def batch_plot_heatmap(VID_FILENAMES, bin_size = 0.1,
+def batch_plot_heatmap(VID_FILENAMES, bin_size = 0.1, SAVE_FLAG = False,
                         LABEL_FONTSIZE=trackingParams['label_fontsize']):    
     h5_filenames = [] 
     fig_heatmap, ax_heatmap = plt.subplots(1,1,figsize=(4,8))
@@ -1628,4 +1745,7 @@ def batch_plot_heatmap(VID_FILENAMES, bin_size = 0.1,
     #plt.tight_layout()
     #plt.axis('equal')
     plt.show() 
+    
+    if SAVE_FLAG:
+        print('under construction')
 #------------------------------------------------------------------------------

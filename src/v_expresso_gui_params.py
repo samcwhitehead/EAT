@@ -15,14 +15,18 @@ Created on Tue Jan 17 12:18:21 2017
 #   var_user = user set variation fed into the PELT change point detector. 
 #
 #------------------------------------------------------------------------------
-analysisParams = {'wlevel' : 4,  #3 , #4
-             'wtype' : 'sym4', #'db3' , #db4
+analysisParams = {'wlevel' : 5,  #3 , #4
+             'wtype' : 'db2', #'db3' , #db4 #sym5
              'medfilt_window' : 5, #7 , #11
              'mad_thresh' : 3.0, #3.0, #-8 -10
              'var_user' : 0.5 ,
              'min_bout_duration': 2, #3 ,
-             'min_bout_volume': 4, #6 ,
-             'min_pos_slope': 0.5}
+             'min_bout_volume': 6, #6 ,
+             'min_pos_slope': 0.5 ,
+             'w_coeff_thresh': 0.05 , 
+             'hampel_k' : 9 , 
+             'hampel_sigma' : 2 ,
+             'pos_der_thresh' : 10 }
              
 guiParams = {'bgcolor' : 'white' ,
              'listbgcolor': '#222222' , 
@@ -34,24 +38,24 @@ guiParams = {'bgcolor' : 'white' ,
              'labelfontstr' : 'Helvetica 14 bold'}
              
 trackingParams = {'fly_size_range' : [20, 100] ,
-                  'bg_min_dist' : 40 , 
-				  'MOG_var_thresh' : 125 , 
-				  'morph_size_1' : 3 ,
-				  'morph_size_2' : 5 , 
-				  'fly_pix_val_max' : 100 ,
-                  't_offset' : 10 ,
-				  'min_pix_thresh' : 25 ,
-				  'kalman_process_noise' : 0.003 , 
-				  'kalman_meas_noise' : 0.1 , 
-				  'n_missing_max' : 3 ,
-				  'n_init_ignore' : 25 , 
-                  'label_fontsize' : 14 , 
-                  'pix2cm' : None , 
-                  'smoothing_factor' : 0.5 ,  
-                  'medfilt_window' : 7 ,
-                  'vel_thresh' : 0.05 , 
-                  'hampel_k' : 11 , 
-                  'hampel_sigma' : 3 }
+            'bg_min_dist' : 40 , 
+            'MOG_var_thresh' : 125 , 
+            'morph_size_1' : 3 ,
+            'morph_size_2' : 5 , 
+            'fly_pix_val_max' : 100 ,
+            't_offset' : 10 ,
+            'min_pix_thresh' : 25 ,
+            'kalman_process_noise' : 0.003 , 
+            'kalman_meas_noise' : 0.1 , 
+            'n_missing_max' : 3 ,
+            'n_init_ignore' : 25 , 
+            'label_fontsize' : 14 , 
+            'pix2cm' : None , 
+            'smoothing_factor' : 0.5 ,  
+            'medfilt_window' : 7 ,
+            'vel_thresh' : 0.05 , 
+            'hampel_k' : 11 , 
+            'hampel_sigma' : 3 }
 
 initDirectories = ["F:\\Expresso GUI\\for_testing\\fewbigmealsevents", 
                      "F:\\Expresso GUI\\for_testing\\fewsmallmealevents",

@@ -20,12 +20,25 @@ from v_expresso_utils import interp_nans, hampel
 
 #---------------------------------------------------------------------------------------
 # returns denoised channel signal 
-def process_signal(dset, analysis_params=analysisParams):
+def process_signal(dset, wtype='db4',wlevel=5,medfilt_window=7,
+                   pos_der_thresh=10.0, PRE_FILT_FLAG=True, MLN_FLAG=False):
     
-    wtype = analysis_params['wtype']
-    wlevel = analysis_params['wlevel']
-    medfilt_window =analysis_params['medfilt_window']
-    dset_denoised = wavelet_denoise(dset, wtype, wlevel) 
+    # remove points with high slope/filter for outliers before wavelet denoise
+    if PRE_FILT_FLAG:
+        dset_der = np.diff(np.squeeze(dset))
+        dset_der = np.insert(dset_der,0,0)
+        good_ind = (np.abs(dset_der) < pos_der_thresh)
+        dset_good = dset[good_ind]
+        
+        frames = np.arange(len(dset))
+        frames_good = frames[good_ind]
+        dset = np.interp(frames, frames_good, dset_good)
+        #dset = hampel(dset, k=hampel_k, t0=hampel_sigma)
+        
+    if MLN_FLAG:
+        dset_denoised = wavelet_denoise_mln(dset, wtype, wlevel) 
+    else:
+        dset_denoised = wavelet_denoise(dset, wtype, wlevel)
     #dset_denoised_hampel = hampel(dset_denoised, k=7, t0=3)
     dset_denoised_med = signal.medfilt(dset_denoised,medfilt_window)
 
@@ -92,18 +105,23 @@ def bout_analysis(dset,frames, analysis_params=analysisParams,
     #=============================
     # params for data processing
     #=============================
-    #wlevel = analysis_params['wlevel'] 
-    #wtype = analysis_params['wtype']
-    #medfilt_window = analysis_params['medfilt_window']
+    wlevel = analysis_params['wlevel'] 
+    wtype = analysis_params['wtype']
+    medfilt_window = analysis_params['medfilt_window']
     min_bout_duration = analysis_params['min_bout_duration']
     min_bout_volume = analysis_params['min_bout_volume']
     min_pos_slope = analysis_params['min_pos_slope']
-    
+    pos_der_thresh = analysis_params['pos_der_thresh']
+    #hampel_k = analysis_params['hampel_k']
+    #hampel_sigma = analysis_params['hampel_sigma']
     mad_thresh = analysis_params['mad_thresh']
     #var_user = analysis_params['var_user']
+    
     #--------------------------------------------------------------------------
     # process data and find changepoint intervals (+ their avg derivative)
-    dset_denoised_med = process_signal(dset, analysis_params=analysis_params)
+    dset_denoised_med = process_signal(dset, wtype=wtype, wlevel=wlevel,
+                                       medfilt_window=medfilt_window, 
+                                       pos_der_thresh=pos_der_thresh)
     
     dset_der,changepts,piecewise_fits,_,piecewise_fit_dur = fit_piecewise_slopes(
                             dset_denoised_med,frames,var_user_flag=var_user_flag)
@@ -261,9 +279,9 @@ def bout_analysis(dset,frames, analysis_params=analysisParams,
         #====================================================
         # show histogram of slopes
         #====================================================
-        fig_hist, ax_hist = plt.subplots()
-        nbins = 100
-        ax_hist.hist(dset_der,nbins)
+        #fig_hist, ax_hist = plt.subplots()
+        #nbins = 100
+        #ax_hist.hist(dset_der,nbins)
             
     return (dset_denoised_med, bouts, volumes)
     

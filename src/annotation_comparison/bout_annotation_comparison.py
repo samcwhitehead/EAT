@@ -36,7 +36,7 @@ bout_ann_dir = os.path.join(parent_dir,'dat','bout_annotations')
 data_dir = os.path.join(bout_ann_dir,'data')
 annot_dir = os.path.join(bout_ann_dir,'annotations_{}'.format(annotator_name))
 machine_dir = os.path.join(bout_ann_dir,'machine')
-save_path = os.path.join(annot_dir,'plots')
+save_path = os.path.join(annot_dir,'plots_2')
 
 #------------------------------------------------------------------------------
 # define params
