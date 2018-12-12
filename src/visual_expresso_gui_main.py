@@ -39,7 +39,7 @@ from load_hdf5_data import load_hdf5
 from bout_analysis_func import bout_analysis
 from batch_bout_analysis_func import batch_bout_analysis, save_batch_xlsx
 from v_expresso_gui_params import (initDirectories, guiParams, trackingParams)
-from v_expresso_image_lib import (visual_expresso_main, 
+from v_expresso_image_lib_mk2 import (visual_expresso_main, 
                                     process_visual_expresso, 
                                     plot_body_cm, plot_body_vel, 
                                     plot_body_angle, plot_moving_v_still, 
@@ -1843,13 +1843,13 @@ class Expresso:
         @staticmethod 
         def file_drop(event):
             if event.data:
-                print('Dropped data:\n', event.data)
+                #print('Dropped data:\n', event.data)
                 #print_event_info(event)
                 
                 files = event.widget.tk.splitlist(event.data)
                 for f in files:
                     if os.path.exists(f) and f.endswith(".hdf5"):
-                        print('Dropped file: "%s"' % f)
+                        #print('Dropped file: "%s"' % f)
                         event.widget.insert('end', f)
                     else:
                         print('Not dropping file "%s": file does not exist or is invalid.' % f)
@@ -1873,13 +1873,13 @@ class Expresso:
         @staticmethod 
         def dir_drop(event):
             if event.data:
-                print('Dropped data:\n', event.data)
+                #print('Dropped data:\n', event.data)
                 #print_event_info(event)
                 
                 dirs = event.widget.tk.splitlist(event.data)
                 for d in dirs:
                     if os.path.isdir(d):
-                        print('Dropped folder: "%s"' % d)
+                        #print('Dropped folder: "%s"' % d)
                         event.widget.insert('end', d)
                     else:
                         print('Not dropping folder "%s": folder does not exist or is invalid.' % d)

@@ -16,7 +16,7 @@ from changepy.costs import normal_mean, normal_meanvar
 
 from my_wavelet_denoise import wavelet_denoise, wavelet_denoise_mln
 from v_expresso_gui_params import analysisParams
-from v_expresso_utils import interp_nans, hampel
+from v_expresso_utils import interp_nans, hampel, moving_avg
 
 #---------------------------------------------------------------------------------------
 # returns denoised channel signal 
@@ -33,7 +33,9 @@ def process_signal(dset, wtype='db4',wlevel=5,medfilt_window=7,
         frames = np.arange(len(dset))
         frames_good = frames[good_ind]
         dset = np.interp(frames, frames_good, dset_good)
-        #dset = hampel(dset, k=hampel_k, t0=hampel_sigma)
+        
+        #dset = moving_avg(dset,k=5)
+        #dset = hampel(dset, k=7, t0=4)
         
     if MLN_FLAG:
         dset_denoised = wavelet_denoise_mln(dset, wtype, wlevel) 
@@ -41,7 +43,8 @@ def process_signal(dset, wtype='db4',wlevel=5,medfilt_window=7,
         dset_denoised = wavelet_denoise(dset, wtype, wlevel)
     #dset_denoised_hampel = hampel(dset_denoised, k=7, t0=3)
     dset_denoised_med = signal.medfilt(dset_denoised,medfilt_window)
-
+    #dset_denoised_med = moving_avg(dset_denoised_med,k=5)
+    
     return dset_denoised_med
 
 #---------------------------------------------------------------------------------------
@@ -89,7 +92,7 @@ def fit_piecewise_slopes(dset_denoised_med,frames,
     
     for i in range(0,len(changepts)-1):
         ipt1 = changepts[i]
-        ipt2 = changepts[i+1] + 1
+        ipt2 = changepts[i+1] # + 1
         fit_temp = np.median(dset_der[ipt1:ipt2])
         #fit_temp = np.mean(dset_der[ipt1:ipt2])
         piecewise_fits[i] = fit_temp
@@ -143,17 +146,21 @@ def bout_analysis(dset,frames, analysis_params=analysisParams,
             
             neg_slope_prev = np.where(dset_der[:chgpt1] <= 0.0)[0]
             try:
-                ind1 = neg_slope_prev[-1]
-                ref_val = dset_denoised_med[ind1]
+                ind1 = neg_slope_prev[-1] + 1
+                ref_val = dset_denoised_med[ind1 - 1]
             except IndexError:
+                #ind1 = 1
+                #ref_val = dset_denoised_med[chgpt2]
                 ind1 = 1
-                ref_val = dset_denoised_med[chgpt2]
+                ref_val = dset_denoised_med[0]
             
             below_ref_idx = np.where(dset_denoised_med[chgpt2:] <= ref_val)[0]
             if below_ref_idx.size < 1:
-                ind2 = len(dset_denoised_med)-1
+                ind2 = len(dset_denoised_med) - 2
+                dset_denoised_med[-1] = ref_val
             else:
-                ind2 = below_ref_idx[0] + chgpt2
+                ind2 = below_ref_idx[0] + chgpt2 - 1
+                dset_denoised_med[below_ref_idx[0] + chgpt2] = ref_val
             #next_val = next(x for x in dset_denoised_med[chgpt2:] if x <= ref_val)
             #next_val_idx = np.where(dset_denoised_med[chgpt2:] == next_val)[0]
             #ind2 = next_val_idx[0] + chgpt2
@@ -167,7 +174,7 @@ def bout_analysis(dset,frames, analysis_params=analysisParams,
             dset_denoised_med[nan_ind[0]:nan_ind[1]] = np.nan
         #dset_der_temp = interp_nans(dset_der_temp)
         dset_denoised_med = interp_nans(dset_denoised_med)
-        dset_der,changepts,piecewise_fits,_,_ = fit_piecewise_slopes(dset_denoised_med,
+        dset_der,changepts,piecewise_fits,_,piecewise_fit_dur = fit_piecewise_slopes(dset_denoised_med,
                                             frames,var_user_flag=var_user_flag)
     #--------------------------------------------------------------------------
     # determine which intervals represent feeding bouts
@@ -183,28 +190,19 @@ def bout_analysis(dset,frames, analysis_params=analysisParams,
     piecewise_fits_dev = (piecewise_fits - dset_der_median) / med_abs_deviation
     modified_z_score = 0.6745 * piecewise_fits_dev
     bout_ind = (modified_z_score < -1*mad_thresh)
-    #bout_ind = (piecewise_fits_dev < mad_thresh) #~z score of 1 #(mean_pw_slope - std_pw_slope)
+    evap_ind = np.logical_and(~bout_ind, (piecewise_fits < 0))
+    
+    # get bout start/stop times by finding when z score shifts below/above thresh
     bout_ind = bout_ind.astype(int)
     bout_ind_diff = np.diff(bout_ind)
-    
-    #print(bout_ind)
-    #print(bout_ind_diff)
-    #piecewise_fits_dev = (piecewise_fits - np.median(dset_der)) / mad_slope
-    #bout_ind = (piecewise_fits_dev < mad_thresh) #~z score of 1 #(mean_pw_slope - std_pw_slope)
-    #bout_ind = bout_ind.astype(int)
-    #bout_ind_diff = np.diff(bout_ind)
-    
-    #plt.figure()
-    #plt.plot(bout_ind)
-    
     bouts_start_ind = np.where(bout_ind_diff == 1)[0] + 1 
     bouts_end_ind = np.where(bout_ind_diff == -1)[0] + 1 
     
+    # make sure if the expt starts with a meal this is included
     if bout_ind[0] == 1:
         bouts_start_ind = np.insert(bouts_start_ind,0,0)
-    #print(bouts_start_ind)
-    #print(bouts_end_ind)
     
+    # make sure there are an equal number of starts and stops
     if len(bouts_start_ind) != len(bouts_end_ind):
         minLength = np.min([len(bouts_start_ind), len(bouts_end_ind)])
         bouts_start_ind = bouts_start_ind[0:minLength]
@@ -214,7 +212,7 @@ def bout_analysis(dset,frames, analysis_params=analysisParams,
     #print(bouts_end_ind)
     
     changepts_array = np.asarray(changepts)
-    bouts_start = changepts_array[bouts_start_ind]
+    bouts_start = changepts_array[bouts_start_ind] 
     bouts_end = changepts_array[bouts_end_ind]
     
     bouts = np.vstack((bouts_start, bouts_end))
@@ -223,8 +221,25 @@ def bout_analysis(dset,frames, analysis_params=analysisParams,
     bout_durations = bouts_end - bouts_start
     good_ind = (bout_durations > min_bout_duration) & (volumes > min_bout_volume)
     
+    # estimate evaporation rate and see if any bouts can be explained by this
+    evap_rates = piecewise_fits[evap_ind]
+    evap_durations = piecewise_fit_dur[evap_ind]
+    mean_evap_rate = np.dot(evap_rates,evap_durations)/np.sum(evap_durations)
+    
+    evap_vol_pred = mean_evap_rate*bout_durations
+    max_err = np.zeros(bouts.shape[1])
+    for i in np.arange(bouts.shape[1]):
+        i1 = bouts[0,i]
+        i2 = bouts[1,i]
+        max_err[i] = -1*np.max(np.abs((dset[i1:i2]-dset_denoised_med[i1:i2])))
+    noise_est_vol = -1.0*(max_err + evap_vol_pred)
+    good_evap_ind = (noise_est_vol < volumes) 
+    good_ind = good_ind & good_evap_ind
+    
+    # take only bouts that meet criteria
     bouts = bouts[:,good_ind]
     volumes = volumes[good_ind]
+    bout_durations = bout_durations[good_ind]
     
     # create plot to check how the bout detection is functioning
     if debug_mode:
@@ -250,14 +265,15 @@ def bout_analysis(dset,frames, analysis_params=analysisParams,
                      dset_denoised_med[bouts[0,i]:bouts[1,i]],'r-')
             ax1.axvspan(frames[bouts[0,i]],frames[bouts[1,i]-1], 
                                  facecolor='grey', edgecolor='none', alpha=0.3)
-        ax2.plot(changepts[1:-1], dset_denoised_med[changepts[1:-1]], 'go')
+        ax2.plot(frames[changepts_array[1:-1]], dset_denoised_med[changepts[1:-1]], 'go')
         
         # plot time derivative of data
+        ax3.plot(frames,np.zeros_like(frames),'k--')
         ax3.plot(frames, dset_der)
         for i in np.arange(bouts.shape[1]):
             ax3.plot(frames[bouts[0,i]:bouts[1,i]], 
                      dset_der[bouts[0,i]:bouts[1,i]],'r-')
-        ax3.plot(changepts[1:-1], dset_der[changepts[1:-1]], 'go')
+        ax3.plot(frames[changepts_array[1:-1]], dset_der[changepts[1:-1]], 'go')
         
         #plot z score
         ax4.plot(frames,z_score_array,'m-')
@@ -282,7 +298,70 @@ def bout_analysis(dset,frames, analysis_params=analysisParams,
         #fig_hist, ax_hist = plt.subplots()
         #nbins = 100
         #ax_hist.hist(dset_der,nbins)
+        
+        #====================================================
+        # visualize estimated evaporation rate
+        #====================================================
+        evap_ind = evap_ind.astype(int)
+        evap_ind_diff = np.diff(evap_ind)
+        evap_start_ind = np.where(evap_ind_diff == 1)[0] + 1 
+        evap_end_ind = np.where(evap_ind_diff == -1)[0] + 1 
+        
+        if evap_ind[0] == 1:
+            evap_start_ind = np.insert(evap_start_ind,0,0)
+    
+        # make sure there are an equal number of starts and stops
+        if len(evap_start_ind) != len(evap_end_ind):
+            minEvapLength = np.min([len(evap_start_ind), len(evap_end_ind)])
+            evap_start_ind = evap_start_ind[0:minEvapLength]
+            evap_end_ind = evap_end_ind[0:minEvapLength]
+        
+        evap_start = changepts_array[evap_start_ind]
+        evap_end = changepts_array[evap_end_ind]
+        
+        # make plot
+        fig, (ax1_evap, ax2_evap) = plt.subplots(2, sharex=True, sharey=True, figsize=(6,6))
+        
+        evap_length_max = 0
+        for i in np.arange(len(evap_start_ind)):
+            idx1 = evap_start[i]
+            idx2 = evap_end[i]
             
+            evap_length = idx2 - idx1 
+            if evap_length > evap_length_max:
+                evap_length_max = evap_length
+            
+            ax1_evap.plot(np.arange(evap_length), dset[idx1:idx2] - dset[idx1])
+            ax2_evap.plot(np.arange(evap_length), 
+                          dset_denoised_med[idx1:idx2] - dset_denoised_med[idx1])
+        
+        
+        evap_line = mean_evap_rate*np.arange(evap_length_max)
+        ax1_evap.plot(np.arange(evap_length_max), evap_line, 'k--')
+        ax2_evap.plot(np.arange(evap_length_max), evap_line, 'k--')
+        
+         # set axis limits
+        ax1_evap.set_xlim([0,evap_length_max])
+        ax1_evap.set_ylim([-15,0])    
+        
+        # set axis labels
+        ax1_evap.set_ylabel('Liquid [nL]')
+        ax2_evap.set_ylabel('Liquid [nL]')
+        ax2_evap.set_xlabel('Frames [num]')
+        ax1_evap.set_title('Evaporation Estimation')
+        
+        #====================================================
+        # compare volumes from raw data to smoothed
+        #====================================================
+        fig, ax = plt.subplots()
+        for i in np.arange(bouts.shape[1]):
+            idx1 = bouts[0,i]
+            idx2 = bouts[1,i]
+            #ax.plot(i,np.sum(np.diff(dset[idx1:idx2])),'ro')
+            ax.plot(i,-1*np.max(np.abs((dset[idx1:idx2]-dset_denoised_med[idx1:idx2]))),'ro')
+        ax.plot(np.arange(bouts.shape[1]),-1*volumes,'bo')
+        ax.plot(np.arange(bouts.shape[1]),mean_evap_rate*bout_durations,'go')
+        
     return (dset_denoised_med, bouts, volumes)
     
     

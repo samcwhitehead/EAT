@@ -21,7 +21,7 @@ import ast
 from statsmodels import robust
 import progressbar
 
-from v_expresso_utils import interp_nans, hampel
+from v_expresso_utils import interp_nans,hampel,interpolate_tracks,remove_nubs
 from v_expresso_gui_params import trackingParams
 
 #-----------------------------------------------------------------------------
@@ -278,7 +278,7 @@ def get_bg(filename, r, tracking_params=trackingParams, debugFlag=True,
     mean_obj_val = np.array([])
     bbox_list = [] 
     bbox_pad = 10
-    N_bbox_max = 500 
+    N_bbox_max = 2000 
     
     delta_cm = 0 
     cc = t_offset
@@ -537,6 +537,7 @@ def get_cm(filename,bg,r,tracking_params=trackingParams, mean_intensity=130.0,
     # define params       
     fly_size_range = tracking_params['fly_size_range']
     morphSize = tracking_params['morph_size_2']
+    bbox_pad = 10
     
     # structuring element for morphological operations
     kernelRad = tracking_params['morph_size_1']
@@ -580,6 +581,7 @@ def get_cm(filename,bg,r,tracking_params=trackingParams, mean_intensity=130.0,
     #y_ind = []
     angle_list = []
     dropped_frames = []
+    bbox = []
     
     ellipse_width = []
     ellipse_height =[]
@@ -627,8 +629,16 @@ def get_cm(filename,bg,r,tracking_params=trackingParams, mean_intensity=130.0,
         th_otsu = cv2.morphologyEx(th_otsu, cv2.MORPH_OPEN, se)
         th_otsu = cv2.morphologyEx(th_otsu, cv2.MORPH_CLOSE, se)
         #th_otsu = cv2.erode(th_otsu, se_erode, iterations=1)  
-        th_otsu = cv2.dilate(th_otsu, se_dilate, iterations=2)
+        th_otsu = cv2.dilate(th_otsu, se_dilate, iterations=1)
         
+        # use a bounding box to mask image?
+        if bbox:
+            (bX, bY, bW, bH) = bbox
+            mask = np.zeros(th_otsu.shape,np.uint8)
+            cv2.rectangle(mask,(bX,bY),(bX+bW,bY+bH),255,-1) 
+            th_otsu = cv2.bitwise_and(th_otsu,th_otsu,mask=mask)
+        else:
+            mask = np.zeros(th_otsu.shape,np.uint8)
         #---------------------------------------------------
         # fit contour to image, check results
         #---------------------------------------------------
@@ -688,35 +698,45 @@ def get_cm(filename,bg,r,tracking_params=trackingParams, mean_intensity=130.0,
         #--------------------------------------------
         # apply Kalman filter
         #--------------------------------------------
-        # if you've detected a center of mass, save that data point
+        # predict output from kalman filter and compare to measurement
+        #tp = kalman.predict()
+        #
+        #predict_err = np.sqrt(np.sum((mp-tp)**2))
+        
+        # if you've detected a center of mass
         if ~np.isnan(xcm_curr):
             mp = np.array([np.float32(xcm_curr), np.float32(ycm_curr)])
             kalman.correct(mp)
             tp = kalman.predict()
-            
+                
             if (ith > N_INIT_IGNORE):
                 x_cm.append(tp[0])
                 y_cm.append(tp[1])
             else:
                 x_cm.append(np.float32(xcm_curr))
                 y_cm.append(np.float32(ycm_curr))
-                
-            N_MISSING_COUNTER = 0 
-        
+            
+            # update tracking counter
+            N_MISSING_COUNTER = 0
+            
+            # update bounding box
+            bbox = cv2.boundingRect(c)
+            bbox = enlarge_bbox(th_otsu, bbox, bbox_pad)
+            
         # if you haven't detected a center of mass, but you did recently:
         elif np.isnan(xcm_curr) and (N_MISSING_COUNTER < N_MISSING_MAX):
             tp = kalman.predict()
             x_cm.append(tp[0])
             y_cm.append(tp[1])
             N_MISSING_COUNTER += 1
-        
+            bbox = enlarge_bbox(th_otsu, bbox, bbox_pad)
+            
         # if you haven't detected center of mass in a while
         else:
-            tp = kalman.predict()
             x_cm.append(np.nan)
             y_cm.append(np.nan)
             dropped_frames.append(ith)
-            
+            bbox = []
             
         if debugFlag:    
             try:
@@ -729,7 +749,7 @@ def get_cm(filename,bg,r,tracking_params=trackingParams, mean_intensity=130.0,
             if ellipseFlag and ellipse_fit:
                 cv2.ellipse(im1,ellipse_fit,(255,0,0),1)
             
-            img_combined = np.hstack((im1,th_otsu,cv2.bitwise_not(im_minus_bg)))
+            img_combined = np.hstack((im1,th_otsu,cv2.bitwise_not(im_minus_bg),mask))
             cv2.imshow('Finding CM...',img_combined)
             #cv2.imshow('image',im1)
             #cv2.imshow('thresh',th_otsu)
@@ -1126,9 +1146,20 @@ def process_visual_expresso(DATA_PATH, DATA_FILENAME, PARAMS=trackingParams,
     
     
     # interpolate through nan values with a spline
-    xcm_interp = interp_nans(xcm_curr)
-    ycm_interp = interp_nans(ycm_curr)
     
+    xcm_interp = interpolate_tracks(xcm_curr)
+    ycm_interp = interpolate_tracks(ycm_curr)
+    
+    xcm_interp = remove_nubs(xcm_interp)
+    ycm_interp = remove_nubs(ycm_interp)
+    
+    interp_idx = np.logical_or(np.isnan(xcm_interp), np.isnan(ycm_interp))
+    
+    xcm_interp[interp_idx] = np.nan
+    ycm_interp[interp_idx] = np.nan
+    
+    xcm_interp = interp_nans(xcm_interp) 
+    ycm_interp = interp_nans(ycm_interp)
     # kalman filter
     #filtered_states = kalman_filt(xcm_curr,ycm_curr)
     #xcm_interp = filtered_states[:,0]
@@ -1143,12 +1174,12 @@ def process_visual_expresso(DATA_PATH, DATA_FILENAME, PARAMS=trackingParams,
     #ycm_filt = signal.savgol_filter(ycm_interp,SAV_GOL_WINDOW, SAV_GOL_ORDER)
     
     # hampel filter for outlier detection
-    xcm_filt = hampel(xcm_interp, HAMPEL_K, HAMPEL_SIGMA)   
-    ycm_filt = hampel(ycm_interp, HAMPEL_K, HAMPEL_SIGMA) 
+    xcm_hampel = hampel(xcm_interp, HAMPEL_K, HAMPEL_SIGMA)   
+    ycm_hampel = hampel(ycm_interp, HAMPEL_K, HAMPEL_SIGMA) 
     
     # fit smoothing spline to calculate derivative
-    sp_xcm = interpolate.UnivariateSpline(t,xcm_filt,s=SMOOTHING_FACTOR)
-    sp_ycm = interpolate.UnivariateSpline(t,ycm_filt,s=SMOOTHING_FACTOR)
+    sp_xcm = interpolate.UnivariateSpline(t,xcm_hampel,s=SMOOTHING_FACTOR)
+    sp_ycm = interpolate.UnivariateSpline(t,ycm_hampel,s=SMOOTHING_FACTOR)
     
     sp_xcm_vel = sp_xcm.derivative(n=1)  
     sp_ycm_vel = sp_ycm.derivative(n=1)
@@ -1221,6 +1252,7 @@ def process_visual_expresso(DATA_PATH, DATA_FILENAME, PARAMS=trackingParams,
             f.create_dataset('BodyCM/xcm_smooth', data=xcm_smooth)
             f.create_dataset('BodyCM/ycm_smooth', data=ycm_smooth)
             f.create_dataset('BodyCM/cum_dist', data=cum_dist)
+            f.create_dataset('BodyCM/interp_idx', data=interp_idx)
                              
             # unprocessed data/information from tracking output file
             f.create_dataset('BodyCM/xcm', data=xcm_curr)
@@ -1251,6 +1283,7 @@ def process_visual_expresso(DATA_PATH, DATA_FILENAME, PARAMS=trackingParams,
                     'ycm' : ycm_curr ,
                     'xcm_smooth' : xcm_smooth , 
                     'ycm_smooth' : ycm_smooth ,
+                    'interp_idx' : interp_idx , 
                     'xcm_vel' : xcm_vel , 
                     'ycm_vel' : ycm_vel , 
                     'vel_mag' : vel_mag ,
@@ -1298,6 +1331,7 @@ def hdf5_to_flyTrackData(DATA_PATH, DATA_FILENAME):
         flyTrackData['xcm_smooth'] = f['BodyCM']['xcm_smooth'].value 
         flyTrackData['ycm_smooth'] = f['BodyCM']['ycm_smooth'].value 
         flyTrackData['cum_dist'] = f['BodyCM']['cum_dist'].value 
+        flyTrackData['interp_idx'] = f['BodyCM']['interp_idx'].value 
         
         flyTrackData['xcm_vel'] = f['BodyVel']['vel_x'].value 
         flyTrackData['ycm_vel'] = f['BodyVel']['vel_y'].value 
