@@ -22,7 +22,7 @@ import h5py
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from load_hdf5_data import load_hdf5
-from bout_analysis_func import bout_analysis
+from bout_analysis_func import check_data_set, plot_channel_bouts, bout_analysis
 from v_expresso_gui_params import analysisParams
 
 #------------------------------------------------------------------------------
@@ -330,24 +330,11 @@ def check_bout_agreement(data_filename,bank_curr,channel_curr, data_dir,
     data_file = os.path.join(data_dir,data_filename)     
     dset, t = load_hdf5(data_file,bank_curr,channel_curr)
         
-    dset_check = (dset != -1)
-    if (np.sum(dset_check) == 0):
+    bad_data_flag, dset, t, frames = check_data_set(dset,t)
+    if bad_data_flag:
         messagestr = "Bad dataset: " + data_file
         print(messagestr)
-    
-    dset_size = dset.size     
-    frames = np.arange(0,dset_size)
-    
-    dset = dset[dset_check]
-    frames = frames[np.squeeze(dset_check)]
-    t = t[dset_check]
-    
-    new_frames = np.arange(0,np.max(frames)+1)
-    sp_raw = interpolate.InterpolatedUnivariateSpline(frames, dset)
-    sp_t = interpolate.InterpolatedUnivariateSpline(frames, t)
-    dset = sp_raw(new_frames)
-    t = sp_t(new_frames)
-    frames = new_frames
+        return (agree_vol,agree_overlap_frac,machine_only_vol,user_only_vol)
         
     dset_smooth, bouts_machine, volumes_machine = bout_analysis(dset,frames,
                                                    analysis_params=analysis_params)
@@ -372,28 +359,19 @@ def check_bout_agreement(data_filename,bank_curr,channel_curr, data_dir,
     # make plots
     #======================================    
     if PLOT_FLAG:
-        fig, (ax1, ax2) = plt.subplots(2, sharex=True, sharey=True, 
-                                        figsize=(17, 7))
-                
-        ax1.set_ylabel('Liquid [nL]')
-        ax2.set_ylabel('Liquid [nL]')
-        ax2.set_xlabel('Time [s]')
-        ax1.set_title(data_filename + ', ' + bank_curr + ', ' + channel_curr,
-                  fontsize=20)
-        ax2.set_title('Smoothed Data')
+        fig, ax1, ax2 = plot_channel_bouts(dset, dset_smooth, t, bouts_ann, 
+                                        figsize=(17, 7),bout_color='g',
+                                        bout_bar_color='g',bout_bar_alpha=0.5)
         
-        ax1.plot(t,dset,'k')
-        ax2.plot(t, dset_smooth,'k')
-        
-        # plot results of annotation
-        for i in np.arange(bouts_ann.shape[1]):
-            ax2.plot(t[bouts_ann[0,i]:bouts_ann[1,i]], 
-                     dset_smooth[bouts_ann[0,i]:bouts_ann[1,i]],'g.',
-                        ms=2,alpha=0.5)
-            ax2.axvspan(t[bouts_ann[0,i]],t[bouts_ann[1,i]-1], 
-                             facecolor='green', edgecolor='none', alpha=0.5)
-            ax1.axvspan(t[bouts_ann[0,i]],t[bouts_ann[1,i]-1], 
-                             facecolor='green', edgecolor='none', alpha=0.5)
+#        # plot results of annotation
+#        for i in np.arange(bouts_ann.shape[1]):
+#            ax2.plot(t[bouts_ann[0,i]:bouts_ann[1,i]], 
+#                     dset_smooth[bouts_ann[0,i]:bouts_ann[1,i]],'g.',
+#                        ms=2,alpha=0.5)
+#            ax2.axvspan(t[bouts_ann[0,i]],t[bouts_ann[1,i]-1], 
+#                             facecolor='green', edgecolor='none', alpha=0.5)
+#            ax1.axvspan(t[bouts_ann[0,i]],t[bouts_ann[1,i]-1], 
+#                             facecolor='green', edgecolor='none', alpha=0.5)
                              
         # plot results of machine
         for k in np.arange(bouts_machine.shape[1]):
@@ -413,8 +391,6 @@ def check_bout_agreement(data_filename,bank_curr,channel_curr, data_dir,
         ax1.legend([userArtist, machineArtist, agreeArtist], 
                              ['User', 'Machine', 'Agreement'],
                                 loc='upper right',shadow=False)                     
-        ax1.set_xlim([t[0],t[-1]])
-        ax1.set_ylim([np.amin(dset),np.amax(dset)])     
         
         ax1.grid(True)
         ax2.grid(True)

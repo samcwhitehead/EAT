@@ -21,11 +21,13 @@ import numpy as np
 from scipy import interpolate
 
 from load_hdf5_data import load_hdf5
-from bout_analysis_func import bout_analysis
+from bout_analysis_func import check_data_set, bout_analysis
+from bout_and_vid_analysis import bout_analysis_wTracking
 
 from openpyxl import Workbook
 #------------------------------------------------------------------------------
-def batch_bout_analysis(channel_entry_list, tmin, tmax, tbin_size, plotFlag):
+def batch_bout_analysis(channel_entry_list, tmin, tmax, tbin_size, plotFlag=False, 
+                        combAnalysisFlag=False):
 
     bouts_list = []
     dset_smooth_list = [] 
@@ -40,33 +42,25 @@ def batch_bout_analysis(channel_entry_list, tmin, tmax, tbin_size, plotFlag):
         filepath, filekeyname, groupkeyname = entry.split(', ',2)
         dset, t = load_hdf5(filepath,filekeyname,groupkeyname)        
         
-        dset_check = (dset != -1)
-        if (np.sum(dset_check) == 0):
+        bad_data_flag, dset, t, frames = check_data_set(dset,t)
+        
+        if bad_data_flag:
             #dset = np.array([])
             #frames = np.array([])
             #sys.exit("Bad dataset; try different group or dataset number")
             messagestr = "Bad dataset: " + filepath + ", " + filekeyname + ", " + groupkeyname
             print(messagestr)
             continue 
-            
-        frames = np.arange(0,dset.size)
-        
-        dset = dset[dset_check]
-        frames = frames[np.squeeze(dset_check)]
-        t = t[dset_check]
-        
-        new_frames = np.arange(0,np.max(frames)+1)
-        sp_raw = interpolate.InterpolatedUnivariateSpline(frames, dset)
-        sp_t = interpolate.InterpolatedUnivariateSpline(frames, t)
-        dset = sp_raw(new_frames)
-        t = sp_t(new_frames)
-        frames = new_frames
         
         # find global time (won't be exact, but should only be off by O(ms))
         if t.size > t_global.size:
             t_global = t
-            
-        dset_smooth, bouts, volumes = bout_analysis(dset,frames)
+        
+        if combAnalysisFlag:
+            dset_smooth, bouts, volumes = bout_analysis_wTracking(filepath,
+                                                    filekeyname, groupkeyname)
+        else:
+            dset_smooth, bouts, volumes = bout_analysis(dset,frames)
         
         bouts_list.append(bouts)
         dset_smooth_list.append(dset_smooth)
@@ -80,7 +74,14 @@ def batch_bout_analysis(channel_entry_list, tmin, tmax, tbin_size, plotFlag):
         name_full = name + ", " + filekeyname + ", " + groupkeyname
         name_list.append(name_full)
     
-    
+    # in case there are not inputs for min, max, and bin size for time
+    if np.isnan(tmin):
+        tmin = np.min(t_global)
+    if np.isnan(tmax):
+        tmax = np.max(t_global)
+    if np.isnan(tbin_size):
+        tbin_size = 20 
+        
     # calculate raster array 
     idx_min = np.searchsorted(t_global,tmin,side='right')
     idx_max = np.searchsorted(t_global,tmax,side='right')

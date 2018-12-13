@@ -22,7 +22,7 @@ from matplotlib.widgets import MultiCursor
 import csv
 
 from load_hdf5_data import load_hdf5
-from bout_analysis_func import bout_analysis
+from bout_analysis_func import check_data_set, bout_analysis
 from v_expresso_gui_params import analysisParams
 
 from get_annotation_fileID import get_annotation_files_in_folder
@@ -221,25 +221,11 @@ save_filepath = join(save_path,splitext(annot_2_filename)[0] + '.csv')
 data_file = join(data_dir,data_filename)     
 dset, t = load_hdf5(data_file,filekeyname,groupkeyname)
     
-dset_check = (dset != -1)
-if (np.sum(dset_check) == 0):
+bad_data_flag, dset, t, frames = check_data_set(dset,t)
+if bad_data_flag:
     messagestr = "Bad dataset: " + data_file
     print(messagestr)
 
-dset_size = dset.size     
-frames = np.arange(0,dset_size)
-
-dset = dset[dset_check]
-frames = frames[np.squeeze(dset_check)]
-t = t[dset_check]
-
-new_frames = np.arange(0,np.max(frames)+1)
-sp_raw = interpolate.InterpolatedUnivariateSpline(frames, dset)
-sp_t = interpolate.InterpolatedUnivariateSpline(frames, t)
-dset = sp_raw(new_frames)
-t = sp_t(new_frames)
-frames = new_frames
-    
 dset_smooth, bouts_machine, volumes_machine = bout_analysis(dset,frames)
 
 #======================================

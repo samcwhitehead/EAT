@@ -26,7 +26,9 @@ analysisParams = {'wlevel' : 6,  #3 , #4
              'w_coeff_thresh': 0.05 , 
              'hampel_k' : 9 , 
              'hampel_sigma' : 2 ,
-             'pos_der_thresh' : 10.0 }
+             'pos_der_thresh' : 10.0 ,
+             'feeding_dist_thresh' : 0.5 , #cm
+             'feeding_move_frac_thresh' : 0.5 } 
              
 guiParams = {'bgcolor' : 'white' ,
              'listbgcolor': '#222222' , 

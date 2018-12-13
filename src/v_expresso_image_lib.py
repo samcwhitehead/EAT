@@ -729,7 +729,8 @@ def get_cm(filename,bg,r,tracking_params=trackingParams, mean_intensity=130.0,
             x_cm.append(tp[0])
             y_cm.append(tp[1])
             N_MISSING_COUNTER += 1
-            bbox = enlarge_bbox(th_otsu, bbox, bbox_pad)
+            if bbox:
+                bbox = enlarge_bbox(th_otsu, bbox, bbox_pad)
             
         # if you haven't detected center of mass in a while
         else:
@@ -1331,7 +1332,10 @@ def hdf5_to_flyTrackData(DATA_PATH, DATA_FILENAME):
         flyTrackData['xcm_smooth'] = f['BodyCM']['xcm_smooth'].value 
         flyTrackData['ycm_smooth'] = f['BodyCM']['ycm_smooth'].value 
         flyTrackData['cum_dist'] = f['BodyCM']['cum_dist'].value 
-        flyTrackData['interp_idx'] = f['BodyCM']['interp_idx'].value 
+        try:
+            flyTrackData['interp_idx'] = f['BodyCM']['interp_idx'].value 
+        except KeyError:
+            flyTrackData['interp_idx'] = np.nan
         
         flyTrackData['xcm_vel'] = f['BodyVel']['vel_x'].value 
         flyTrackData['ycm_vel'] = f['BodyVel']['vel_y'].value 

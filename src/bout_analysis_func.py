@@ -19,6 +19,35 @@ from v_expresso_gui_params import analysisParams
 from v_expresso_utils import interp_nans, hampel, moving_avg
 
 #---------------------------------------------------------------------------------------
+# check that data set actually contains data 
+def check_data_set(dset,t):
+    dset_check = (dset != -1)
+    bad_data_flag = (np.sum(dset_check) == 0)
+    
+    if bad_data_flag:
+        dset = np.array([])
+        frames = np.array([])
+        t = np.array([])
+        #dset_smooth = np.array([])
+        #bouts = np.array([])
+        #volumes = np.array([])
+        #print('Problem with loading data - invalid data set')
+    else:    
+        frames = np.arange(0,dset.size)
+        
+        dset = dset[dset_check]
+        frames = frames[np.squeeze(dset_check)]
+        t = t[dset_check]
+        
+        new_frames = np.arange(0,np.max(frames)+1)
+        sp_raw = interpolate.InterpolatedUnivariateSpline(frames, dset)
+        sp_t = interpolate.InterpolatedUnivariateSpline(frames, t)
+        dset = sp_raw(new_frames)
+        t = sp_t(new_frames)
+        frames = new_frames
+    
+    return (bad_data_flag, dset, t, frames)
+#---------------------------------------------------------------------------------------
 # returns denoised channel signal 
 def process_signal(dset, wtype='db4',wlevel=5,medfilt_window=7,
                    pos_der_thresh=10.0, PRE_FILT_FLAG=True, MLN_FLAG=False):
@@ -100,6 +129,38 @@ def fit_piecewise_slopes(dset_denoised_med,frames,
         piecewise_fit_dur[i] = len(range(ipt1,ipt2))
     
     return (dset_der, changepts, piecewise_fits, piecewise_fit_dist, piecewise_fit_dur)    
+
+#------------------------------------------------------------------------------
+# function to generate plot of channel data with meal bouts marked
+def plot_channel_bouts(dset, dset_smooth, t, bouts, figsize=(12, 7),
+                       bout_color='r',bout_bar_color='grey',bout_bar_alpha=0.3):
+                           
+    fig, (ax1, ax2) = plt.subplots(2, sharex=True, sharey=True,figsize=figsize)
+            
+    ax1.set_ylabel('Liquid [nL]')
+    ax2.set_ylabel('Liquid [nL]')
+    ax2.set_xlabel('Time [s]')
+    ax1.set_title('Raw Data')
+    ax2.set_title('Smoothed Data')
+    
+    ax1.plot(t,dset)
+    ax2.plot(t, dset_smooth)
+    for i in np.arange(bouts.shape[1]):
+        ax2.plot(t[bouts[0,i]:bouts[1,i]], dset_smooth[bouts[0,i]:bouts[1,i]],
+                                                         '-',color=bout_color)
+        ax2.axvspan(t[bouts[0,i]],t[bouts[1,i]-1], 
+                         facecolor=bout_bar_color, 
+                         edgecolor='none', 
+                         alpha=bout_bar_alpha)
+        ax1.axvspan(t[bouts[0,i]],t[bouts[1,i]-1], 
+                         facecolor=bout_bar_color, 
+                         edgecolor='none', 
+                         alpha=bout_bar_alpha)
+        
+    ax1.set_xlim([t[0],t[-1]])
+    ax1.set_ylim([np.amin(dset),np.amax(dset)])
+
+    return (fig, ax1, ax2)    
 
 #------------------------------------------------------------------------------                
 def bout_analysis(dset,frames, analysis_params=analysisParams, 
@@ -234,14 +295,15 @@ def bout_analysis(dset,frames, analysis_params=analysisParams,
         max_err[i] = -1*np.max(np.abs((dset[i1:i2]-dset_denoised_med[i1:i2])))
     noise_est_vol = -1.0*(max_err + evap_vol_pred)
     good_evap_ind = (noise_est_vol < volumes) 
-    good_ind = good_ind & good_evap_ind
+    #good_ind = good_ind & good_evap_ind
     
     # take only bouts that meet criteria
     bouts = bouts[:,good_ind]
     volumes = volumes[good_ind]
     bout_durations = bout_durations[good_ind]
     
-    # create plot to check how the bout detection is functioning
+    #--------------------------------------------------------------------------
+    # create plots to check how the bout detection is functioning
     if debug_mode:
         
         #====================================================

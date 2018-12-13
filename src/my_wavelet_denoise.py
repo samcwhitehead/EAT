@@ -19,7 +19,6 @@ def wcoef_plot(coeffs):
     adapted: http://jseabold.net/blog/2012/02/23/wavelet-regression-in-python/
     
     """
-
     n_levels = len(coeffs)
     fig, ax_arr = plt.subplots(n_levels) 
 
@@ -45,9 +44,8 @@ def wavelet_denoise(data,wtype='db4',wlevel=2,s_thresh=0.1, plotFlag=False):
     if plotFlag:
         wcoef_plot(coeffs)
      # find wavelet level based on sparsity metric
-    
     sparsity_metric = wcoeff_sparsity_metric(coeffs)
-    print('sparsity metric = {}'.format(sparsity_metric))
+    #print('sparsity metric = {}'.format(sparsity_metric))
     while (np.max(sparsity_metric) > s_thresh) and (wlevel > 2):
         wlevel = wlevel - 1 
         coeffs = pywt.wavedec(np.squeeze(data),wtype,level=wlevel,mode='symmetric')
