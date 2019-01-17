@@ -415,14 +415,14 @@ def bout_analysis(dset,frames, analysis_params=analysisParams,
         #====================================================
         # compare volumes from raw data to smoothed
         #====================================================
-        fig, ax = plt.subplots()
-        for i in np.arange(bouts.shape[1]):
-            idx1 = bouts[0,i]
-            idx2 = bouts[1,i]
-            #ax.plot(i,np.sum(np.diff(dset[idx1:idx2])),'ro')
-            ax.plot(i,-1*np.max(np.abs((dset[idx1:idx2]-dset_denoised_med[idx1:idx2]))),'ro')
-        ax.plot(np.arange(bouts.shape[1]),-1*volumes,'bo')
-        ax.plot(np.arange(bouts.shape[1]),mean_evap_rate*bout_durations,'go')
+        #fig, ax = plt.subplots()
+        #for i in np.arange(bouts.shape[1]):
+        #    idx1 = bouts[0,i]
+        #    idx2 = bouts[1,i]
+        #    #ax.plot(i,np.sum(np.diff(dset[idx1:idx2])),'ro')
+        #    ax.plot(i,-1*np.max(np.abs((dset[idx1:idx2]-dset_denoised_med[idx1:idx2]))),'ro')
+        #ax.plot(np.arange(bouts.shape[1]),-1*volumes,'bo')
+        #ax.plot(np.arange(bouts.shape[1]),mean_evap_rate*bout_durations,'go')
         
     return (dset_denoised_med, bouts, volumes)
     

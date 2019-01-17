@@ -42,6 +42,7 @@ def nan_helper(y):
 # interpolate through nan values (missing track points)
 def interp_nans(y,min_length=1):
     z = y.copy()
+    #print('z is a {}'.format(type(z)))
     nans, x = nan_helper(z)
     #eliminate small data chunks (likely spurious)
     not_nan_idx = idx_by_thresh(~nans)
@@ -124,8 +125,10 @@ def interpolate_tracks(X, dist_thresh=0.1, slope_thresh=1.0, N_pad=2,
     track_end = np.where(nan_idx_diff == 1)[0] - 1
     
     # make sure to include end
-    if track_end.size < track_start.size:
+    if (track_end.size < track_start.size) and (track_start.size > 1):
         track_end = np.insert(track_end,-1,len(X)-1)
+    elif (track_end.size < track_start.size) and (track_start.size == 1):
+        track_end = np.array([len(X)-1])
     
     # loop through chunks and interpolate between them if they meet criteria
     for ith in np.arange(len(track_start)-1):
@@ -155,7 +158,8 @@ def interpolate_tracks(X, dist_thresh=0.1, slope_thresh=1.0, N_pad=2,
         # check for distance and slope criteria
         if (dX <= dist_thresh) or (dSlope <= slope_thresh):
             X_out[start_idx:next_end_idx] = interp_nans(X[start_idx:next_end_idx])
-    
+             
+            
     if PLOT_FLAG:
         fig, ax = plt.subplots()
         ax.plot(np.arange(len(X)),X_out,'r')    
@@ -165,7 +169,7 @@ def interpolate_tracks(X, dist_thresh=0.1, slope_thresh=1.0, N_pad=2,
     
 #------------------------------------------------------------------------------
 # remove short duration tracks from time series--likely spurious
-def remove_nubs(y,min_length=200):
+def remove_nubs(y,min_length=50):
     z = y.copy()
     nans, x = nan_helper(z)
     not_nan_idx = idx_by_thresh(~nans)

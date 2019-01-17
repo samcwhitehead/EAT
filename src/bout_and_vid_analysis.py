@@ -12,6 +12,7 @@ import sys
 
 import numpy as np
 from matplotlib import pyplot as plt
+from matplotlib import cm 
 
 import h5py
 
@@ -72,42 +73,55 @@ def basic2vid(basic_entry, file_ext='.avi'):
 #------------------------------------------------------------------------------
 # function that will take a list of basic entries and group them by expt
 def group_expts_basic(basic_entry_list):
-    dir_list = os.path.dirname(basic_entry_list)
-    #dir_list_unique = list(set(dir_list))
+    dir_list = [os.path.dirname(ent) for ent in basic_entry_list]
+    dir_list_unique = list(set(dir_list))
     
-    expt_idx = []
-    for dr in dir_list:
+    expt_idx = np.zeros(len(dir_list),dtype=int)
+    N_expt = []
+    for ith, dr in enumerate(dir_list_unique):
         idx = [i for i, j in enumerate(dir_list) if j == dr]
-        expt_idx.append(idx)
+        N_expt.append(len(idx))
+        expt_idx[idx] = ith
         
-    return expt_idx
+    return expt_idx, N_expt
     
 #------------------------------------------------------------------------------
 # function to check bouts based on tracking data
-def bout_analysis_wTracking(filename, bank_name, channel_name, 
-                            bout_params=analysisParams, saveFlag=False, 
-                            plotFlag=False, debugBoutFlag=False,
+def bout_analysis_wTracking(filename, bank_name, channel_name, bts=[], 
+                            vols=[], time=[], dset_sm=[], bout_params=analysisParams, 
+                            saveFlag=False, plotFlag=False, debugBoutFlag=False,
                             debugTrackingFlag=False):
     
     MOVE_FRAC_THRESH = bout_params['feeding_move_frac_thresh']
-    DIST_THRESH = bout_params['feeding_dist_thresh']
-    dist_prctile_level = 75
+    MAX_DIST_THRESH = bout_params['feeding_dist_max']
+    MIN_DIST_THRESH = bout_params['feeding_dist_min']
+    MAX_VEL_THRESH  = bout_params['feeding_vel_max']
+    dist_max_prctile_lvl = 90 # 75
+    dist_min_prctile_lvl = 50 # 25 
+    vel_max_prctile_lvl = 50 #50
+    
     #--------------------------------
     # load channel data and get bouts
     #--------------------------------
-    dset, t = load_hdf5(filename,bank_name,channel_name)        
-        
-    bad_data_flag, dset, t, frames = check_data_set(dset,t)
-    
-    if not bad_data_flag:
-        dset_smooth, bouts, volumes = bout_analysis(dset,frames,
-                                                    debug_mode=debugBoutFlag)
+    if (np.asarray(bts).size > 0) and (np.asarray(vols).size > 0):
+        bouts = bts
+        volumes = vols
+        dset_smooth = dset_sm
+        t = time 
     else:
-        print('Problem loading data set')
-        dset_smooth = np.nan
-        bouts_corrected = np.nan
-        volumes_corrected = np.nan
-        return (dset_smooth, bouts_corrected,volumes_corrected)
+        dset, t = load_hdf5(filename,bank_name,channel_name)        
+        
+        bad_data_flag, dset, t, frames = check_data_set(dset,t)
+        
+        if not bad_data_flag:
+            dset_smooth, bouts, volumes = bout_analysis(dset,frames,
+                                                    debug_mode=debugBoutFlag)
+        else:
+            print('Problem loading data set')
+            dset_smooth = np.nan
+            bouts_corrected = np.nan
+            volumes_corrected = np.nan
+            return (dset_smooth, bouts_corrected,volumes_corrected)
         
     #--------------------------------
     # load tracking data
@@ -152,7 +166,7 @@ def bout_analysis_wTracking(filename, bank_name, channel_name,
     xcm_smooth = flyTrackData['xcm_smooth']
     ycm_smooth = flyTrackData['ycm_smooth']
     dist_mag = np.sqrt(xcm_smooth**2 + ycm_smooth**2)
-    #vel_mag = flyTrackData['vel_mag']
+    vel_mag = flyTrackData['vel_mag']
     moving_ind = flyTrackData['moving_ind']
     N_bouts = bouts.shape[1] 
     
@@ -166,14 +180,25 @@ def bout_analysis_wTracking(filename, bank_name, channel_name,
         # check that the fly is not moving for a certain fraction of bout
         total_moving_bout = float(np.sum(moving_ind[vid_start_idx:vid_end_idx]))
         moving_chk = total_moving_bout/vid_bout_dur
-        moving_chk_bool = (moving_chk < MOVE_FRAC_THRESH)
+        moving_chk = (moving_chk < MOVE_FRAC_THRESH)
+        
+        # check that the fly doesn't exceed a certain velocity
+        vel_mag_bout = vel_mag[vid_start_idx:vid_end_idx]
+        vel_max_prctile = np.percentile(vel_mag_bout,vel_max_prctile_lvl)
+        max_vel_check = (vel_max_prctile < MAX_VEL_THRESH)
         
         # check that fly is close to cap tip
         dist_mag_bout = dist_mag[vid_start_idx:vid_end_idx]
-        dist_mag_prctile = np.percentile(dist_mag_bout,dist_prctile_level)
-        dist_check_bool = (dist_mag_prctile < DIST_THRESH) 
+        dist_max_prctile = np.percentile(dist_mag_bout,dist_max_prctile_lvl)
+        dist_min_prctile = np.percentile(dist_mag_bout,dist_min_prctile_lvl)
+        max_dist_check = (dist_max_prctile < MAX_DIST_THRESH)
+        min_dist_check = (dist_min_prctile < MIN_DIST_THRESH)
         
-        bout_check[ith] = moving_chk_bool & dist_check_bool #& moving_chk_bool #& 
+        # make sure that all 3 boolean values are true. this means that:
+        #   1) the fly is moving for less than MOVE_FRAC_THRESH of the time
+        #   2) the fly doesn't go too far from the tip during the meal
+        #   3) the fly gets sufficiently close to the tip
+        bout_check[ith] = min_dist_check & max_vel_check #moving_chk & #max_dist_check & 
         
     # now remove the bouts that fail to meet distance/moving criteria
     bout_check = np.asarray(bout_check,dtype=int)
@@ -188,11 +213,35 @@ def bout_analysis_wTracking(filename, bank_name, channel_name,
         fig_cor.suptitle('With tracking')
         fig.suptitle('No tracking')                                            
     
+    # in addition to standard bout debugging plots, create plot that shows 
+    #   location and velocity during putative bout
+    if debugBoutFlag:
+        fig, ax1, ax2 = plot_channel_bouts(dset,dset_smooth,t, bouts_corrected)
+        color = 'green'  
+        
+        # plot distance from tip on top of raw data        
+        ax1_twin = ax1.twinx()
+        ax1_twin.set_ylabel('Dist. from tip [cm]', color=color)                                           
+        ax1_twin.plot(vid_t, dist_mag, color=color)
+        ax1_twin.tick_params(axis='y', labelcolor=color)
+        ax1_twin.set_xlim([0, np.max(vid_t)])
+        
+        # plot speed on top of smooth data
+        ax2_twin = ax2.twinx()
+        ax2_twin.set_ylabel('Speed [cm/s]', color=color)                                           
+        ax2_twin.plot(vid_t, flyTrackData['vel_mag'], color=color)
+        ax2_twin.tick_params(axis='y', labelcolor=color)
+        ax2_twin.set_xlim([0, np.max(vid_t)])
+        
+        fig.tight_layout()  # otherwise the right y-label is slightly clipped
+        plt.show()
     # save results?
     if saveFlag:
         print('under construction')
         
     return (dset_smooth, bouts_corrected, volumes_corrected)
+
+
 #------------------------------------------------------------------------------
 # function to create dictionary with both tracking and feeding data
 def merge_v_expresso_data(dset,dset_smooth,channel_t,frames,bouts, volumes, 
@@ -236,7 +285,7 @@ def flyCombinedData_to_hdf5(flyCombinedData):
         f.create_dataset('Time/channel_t', data=flyCombinedData['channel_t'])
         f.create_dataset('Params/pix2cm', data=flyCombinedData['PIX2CM'])
         f.create_dataset('Params/trackingParams', 
-                         data=str(flyCombinedData['PARAMS']))
+                         data=str(flyCombinedData['trackingParams']))
         f.create_dataset('Params/boutParams', 
                          data=str(flyCombinedData['boutParams']))
         
@@ -257,7 +306,7 @@ def flyCombinedData_to_hdf5(flyCombinedData):
         try:
             f.create_dataset('BodyCM/interp_idx', 
                              data=flyCombinedData['interp_idx'])
-        except KeyError:
+        except TypeError:
             f.create_dataset('BodyCM/interp_idx', data=np.nan)
                          
         # unprocessed data/information from tracking output file
@@ -271,7 +320,7 @@ def flyCombinedData_to_hdf5(flyCombinedData):
         try:
             f.create_dataset('BodyAngle/body_angle', 
                              data=flyCombinedData['body_angle'])  
-        except KeyError:
+        except TypeError:
             f.create_dataset('BodyAngle/body_angle', data=np.nan)   
 
         #----------------------------------
@@ -301,6 +350,7 @@ def hdf5_to_flyCombinedData(filepath, filename):
     
     # tracking results
     filename_full = os.path.join(filepath,filename)
+    filename_full = os.path.abspath(filename_full)
     with h5py.File(filename_full,'r') as f:
         
         #--------------------------
@@ -363,6 +413,111 @@ def hdf5_to_flyCombinedData(filepath, filename):
         
     return flyCombinedData
 
+#------------------------------------------------------------------------------
+# function to match up expresso channel and camera timing
+def interp_channel_time(flyCombinedData):
+    
+    cam_t = flyCombinedData['t']
+    channel_t = flyCombinedData['channel_t']
+    dset_raw = flyCombinedData['channel_dset']
+    dset_smooth = flyCombinedData['channel_dset_smooth']
+    bouts = flyCombinedData['bouts']
+    
+    bouts_start_t = channel_t[bouts[0,:]]
+    bouts_end_t = channel_t[bouts[1,:]]
+    
+    bouts_idx1_cam = np.zeros(bouts_start_t.shape,dtype=int) 
+    bouts_idx2_cam = np.zeros(bouts_end_t.shape,dtype=int) 
+    
+    for ith in np.arange(len(bouts_idx1_cam)):
+        bouts_idx1_cam[ith] = np.argmin(np.abs(bouts_start_t[ith] - cam_t))
+        bouts_idx2_cam[ith] = np.argmin(np.abs(bouts_end_t[ith] - cam_t))
+        
+    bouts_cam = np.vstack((bouts_idx1_cam, bouts_idx2_cam))
+    dset_cam = np.interp(cam_t, channel_t, dset_raw)
+    dset_smooth_cam = np.interp(cam_t, channel_t, dset_smooth)
+    
+    return dset_cam, dset_smooth_cam, bouts_cam
+    
+#------------------------------------------------------------------------------
+# function to plot feeding-bout-end aligned data
+def plot_bout_aligned_var(basic_entries, var='vel_mag', window=300, 
+                                N_meals=4,figsize=(6,10), saveFlag=False):
+    
+    data_suffix = '_COMBINED_DATA.hdf5'
+    expt_idx, N_expt = group_expts_basic(basic_entries)
+    cmap_name_list = ['Reds','Blues','Greens','Purples','Oranges','YlOrBr', \
+                        'PuBu','YlOrRd','BuGn']
+    cmap_mat = np.array([])
+    for jth in np.arange(len(N_expt)):
+        cmap_curr = cm.get_cmap(cmap_name_list[jth])
+        c_val = np.arange(N_expt[jth],dtype=float) + 1.0
+        normalized_c_val = c_val/np.max(c_val)
+        color_vecs = cmap_curr(tuple(normalized_c_val))
+        if jth == 0:
+            cmap_mat = (color_vecs)
+        else:
+            cmap_mat = np.vstack((cmap_mat, color_vecs))
+        
+    # create plot
+    fig, ax_arr = plt.subplots(N_meals,figsize=figsize,sharex=True, sharey=True)
+    
+    #expt_idx_counter = expt_idx[0]
+    #cc = 0
+    for ith, ent in enumerate(basic_entries):
+        # load combined data file
+        filename_full = ent + data_suffix
+        filepath, filename = os.path.split(filename_full)
+        flyCombinedData = hdf5_to_flyCombinedData(filepath, filename)
+        
+        # get color for plot
+#        expt_idx_curr = expt_idx[ith]
+#        if expt_idx_curr != expt_idx_counter:
+#            cc = 0
+#            color_vec_curr = cmap_list[expt_idx_curr][cc]
+#        else:
+#            color_vec_curr = cmap_list[expt_idx_curr][cc]
+#            cc += 1
+        color_vec_curr = cmap_mat[ith,:]
+        
+        
+        # assign data and select variable to plot
+        t = flyCombinedData['t']
+        t_plot = t[:window] - t[0]
+        if var == 'vel_mag':
+            var_curr = flyCombinedData[var]
+        elif var == 'dist_mag':
+            var_curr = np.sqrt(flyCombinedData['xcm_smooth']**2 + \
+                                    flyCombinedData['ycm_smooth']**2)
+        else:
+            print('do not have this option yet')
+            return
+        
+        # since we're plotting tracking results, need bout index on cam time
+        _, _, bouts_cam = interp_channel_time(flyCombinedData)
+        
+        # now loop through and plot
+        N_meals_curr = np.min([bouts_cam.shape[1], N_meals])        
+        for kth in np.arange(N_meals_curr):
+            idx1 = bouts_cam[1,kth]
+            idx2 = np.min([bouts_cam[1,kth] + window, len(t)-1])
+            var_to_plot = var_curr[idx1:idx2]
+            ax_arr[kth].plot(t_plot, var_to_plot, '-', color=color_vec_curr)
+     
+    for ax_num in np.arange(N_meals):
+        if var == 'vel_mag':
+            ax_arr[ax_num].set_ylabel('Speed (cm/s)')
+        elif var == 'dist_mag':
+            ax_arr[ax_num].set_ylabel('Distance from tip (cm)')
+        else:
+            print('do not have this option yet')
+            return
+        
+        ax_arr[ax_num].set_title('Aligned to meal {} end'.format(ax_num+1))
+        if ax_num == (N_meals - 1 ):
+            ax_arr[ax_num].set_xlabel('Time (s)')
+    
+    return fig
 #------------------------------------------------------------------------------
 # function to save time series of combined data
 def save_comb_time_series(data_filenames):

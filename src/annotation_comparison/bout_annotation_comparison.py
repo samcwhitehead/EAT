@@ -24,7 +24,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from load_hdf5_data import load_hdf5
 from bout_analysis_func import check_data_set, plot_channel_bouts, bout_analysis
 from v_expresso_gui_params import analysisParams
-
+from bout_and_vid_analysis import bout_analysis_wTracking
 #------------------------------------------------------------------------------
 #------------------------------------------------------------------------------
 # get paths to raw data, annotations, etc.
@@ -33,7 +33,8 @@ annotator_name = 'saumya'
 src_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 parent_dir = os.path.dirname(src_dir)
 bout_ann_dir = os.path.join(parent_dir,'dat','bout_annotations')
-data_dir = os.path.join(bout_ann_dir,'data')
+#data_dir = os.path.join(bout_ann_dir,'data')
+data_dir = 'H:/v_expresso data/Feeding_annotation_videos/'
 annot_dir = os.path.join(bout_ann_dir,'annotations_{}'.format(annotator_name))
 machine_dir = os.path.join(bout_ann_dir,'machine')
 save_path = os.path.join(annot_dir,'plots_2')
@@ -43,7 +44,8 @@ save_path = os.path.join(annot_dir,'plots_2')
 PLOT_FLAG_1 = True # do you want plots for each file?    
 SAVE_FLAG_1 = True # do you to save plots for each file?        
 PLOT_FLAG_2 = True  # do you want a summary plot? 
-SAVE_FLAG_2 = True # do you to save summary plot?                                 
+SAVE_FLAG_2 = True # do you to save summary plot?   
+VID_FLAG = True   # do you want to use videos to correct meal detection                              
 SKIP_IND = []       # indices of files to skip
 DELTA_T = 6        # if bouts are separated in time by less than this->merge
 AGREE_FRAC = 0.50   # fraction of overlap required for bouts to "agree" 
@@ -335,9 +337,19 @@ def check_bout_agreement(data_filename,bank_curr,channel_curr, data_dir,
         messagestr = "Bad dataset: " + data_file
         print(messagestr)
         return (agree_vol,agree_overlap_frac,machine_only_vol,user_only_vol)
-        
-    dset_smooth, bouts_machine, volumes_machine = bout_analysis(dset,frames,
+    
+    #-----------------------------
+    # perform video corrections?
+    #-----------------------------
+    if VID_FLAG:
+        dset_smooth, bouts_machine, volumes_machine = \
+                                            bout_analysis_wTracking(data_file,
+                                                    bank_curr,channel_curr,
+                                                    bout_params=analysis_params)
+    else: 
+        dset_smooth, bouts_machine, volumes_machine = bout_analysis(dset,frames,
                                                    analysis_params=analysis_params)
+    
     N_PTS = dset_smooth.size # total number of time points
     
     #======================================
@@ -354,6 +366,16 @@ def check_bout_agreement(data_filename,bank_curr,channel_curr, data_dir,
         
         bouts_ann = bouts_ann[:,ann_good_ind] 
         volumes_ann = volumes_ann[ann_good_ind]
+    
+    # perform video correction?
+    if VID_FLAG:
+        _, bouts_ann, volumes_ann= bout_analysis_wTracking(data_file,bank_curr,
+                                                    channel_curr, bts=bouts_ann,
+                                                    vols=volumes_ann, time=t,
+                                                    dset_sm = dset_smooth,
+                                                    bout_params=analysis_params)
+        
+    
 #------------------------------------------------------------------------------        
     #======================================
     # make plots

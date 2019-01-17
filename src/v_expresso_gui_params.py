@@ -27,8 +27,10 @@ analysisParams = {'wlevel' : 6,  #3 , #4
              'hampel_k' : 9 , 
              'hampel_sigma' : 2 ,
              'pos_der_thresh' : 10.0 ,
-             'feeding_dist_thresh' : 0.5 , #cm
-             'feeding_move_frac_thresh' : 0.5 } 
+             'feeding_dist_max' : 0.5 , #cm #0.5
+             'feeding_dist_min' : 0.35 , # cm #0.375
+             'feeding_move_frac_thresh' : 0.5 ,
+             'feeding_vel_max' : 0.1 } 
              
 guiParams = {'bgcolor' : 'white' ,
              'listbgcolor': '#222222' , 
@@ -46,16 +48,17 @@ trackingParams = {'fly_size_range' : [20, 100] ,
             'morph_size_2' : 5 , 
             'fly_pix_val_max' : 100 ,
             't_offset' : 10 ,
-            'min_pix_thresh' : 25 ,
+            'min_pix_thresh_guess' : 20 ,
+            'min_pix_thresh' : 10 , 
             'kalman_process_noise' : 0.003 , 
-            'kalman_meas_noise' : 0.1 ,  #0.1
-            'n_missing_max' : 3 , #3
+            'kalman_meas_noise' : 1.0 ,  #0.1
+            'n_missing_max' : 2 , #3
             'n_init_ignore' : 25 , 
             'label_fontsize' : 14 , 
             'pix2cm' : None , 
-            'smoothing_factor' : 1.0 ,  
+            'smoothing_factor' : 0.1 ,  
             'medfilt_window' : 7 ,
-            'vel_thresh' : 0.05 , 
+            'vel_thresh' : 0.05 , #0.05
             'hampel_k' : 11 , 
             'hampel_sigma' : 3 }
 
@@ -67,6 +70,7 @@ initDirectories = ["F:\\Expresso GUI\\for_testing\\fewbigmealsevents",
                      "F:\\Expresso GUI\\for_testing\\long_data_files",
                      "F:\\Expresso GUI\\Saumya Annotations\\annotations_expresso_data",
                      "C:\\Users\Fruit Flies\\Documents\\Python Scripts\\Visual Expresso GUI\\dat\\bout_annotations\\data",
+                     "H:\\v_expresso data\\Feeding_annotation_videos",
                      "H:\\v_expresso data\\MATRIX_DEBUG\\8hr_1mM",
                      "H:\\v_expresso data\\staci example video"]
              

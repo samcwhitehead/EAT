@@ -40,8 +40,10 @@ from bout_analysis_func import check_data_set, plot_channel_bouts, bout_analysis
 from batch_bout_analysis_func import batch_bout_analysis, save_batch_xlsx
 from v_expresso_gui_params import (initDirectories, guiParams, trackingParams)
 from bout_and_vid_analysis import (channel2basic, vid2basic, basic2channel, 
-                                   basic2vid, save_comb_time_series, 
-                                   bout_analysis_wTracking)
+                                   basic2vid, flyCombinedData_to_hdf5,
+                                   save_comb_time_series, hdf5_to_flyCombinedData,
+                                   bout_analysis_wTracking, merge_v_expresso_data,
+                                   plot_bout_aligned_var)
 from v_expresso_image_lib import (visual_expresso_main, 
                                     process_visual_expresso, 
                                     plot_body_cm, plot_body_vel, 
@@ -697,19 +699,21 @@ class VideoDataFrame(Frame):
             return 
         
         menu_debug_flag = parent.debug_tracking.get()
+        save_debug_flag = not(menu_debug_flag)
         file_entry = self.filelist.get(selected_ind[0])
         file_path, filename = os.path.split(file_entry)
-        self.flyTrackData = visual_expresso_main(file_path, filename, 
+        _ = visual_expresso_main(file_path, filename, 
                             DEBUG_BG_FLAG=menu_debug_flag, 
                             DEBUG_CM_FLAG=menu_debug_flag, 
-                            SAVE_DATA_FLAG=True, ELLIPSE_FIT_FLAG = False, 
+                            SAVE_DATA_FLAG=save_debug_flag, 
+                            ELLIPSE_FIT_FLAG = False, 
                             PARAMS=trackingParams)
                             
         filename_prefix = os.path.splitext(filename)[0]
         track_filename = filename_prefix + "_TRACKING.hdf5"  
                   
-        self.flyTrackData_smooth = process_visual_expresso(file_path, track_filename,
-                            SAVE_DATA_FLAG = True, DEBUG_FLAG = False)
+        _ = process_visual_expresso(file_path, track_filename,
+                            SAVE_DATA_FLAG=save_debug_flag, DEBUG_FLAG=False)
                             
         self.vid_filepath = file_entry
     
@@ -732,12 +736,12 @@ class VideoDataFrame(Frame):
             save_filename = os.path.abspath(save_filename)
             #save_filename = os.path.normpath(save_filename)
             
-            if self.vid_filepath == file_entry:
-                plot_body_cm(self.flyTrackData_smooth,SAVE_FLAG=menu_save_flag)
-                plot_body_vel(self.flyTrackData_smooth,SAVE_FLAG=menu_save_flag) 
-                plot_moving_v_still(self.flyTrackData_smooth,SAVE_FLAG=menu_save_flag)
-                plot_cum_dist(self.flyTrackData_smooth,SAVE_FLAG=menu_save_flag)
-            elif os.path.exists(save_filename):
+#            if self.vid_filepath == file_entry:
+#                plot_body_cm(self.flyTrackData_smooth,SAVE_FLAG=menu_save_flag)
+#                plot_body_vel(self.flyTrackData_smooth,SAVE_FLAG=menu_save_flag) 
+#                plot_moving_v_still(self.flyTrackData_smooth,SAVE_FLAG=menu_save_flag)
+#                plot_cum_dist(self.flyTrackData_smooth,SAVE_FLAG=menu_save_flag)
+            if os.path.exists(save_filename):
                 self.vid_filepath = file_entry
                 _, track_filename = os.path.split(save_filename)
                 self.flyTrackData_smooth = \
@@ -874,6 +878,7 @@ class BatchFrame(Frame):
     def add_to_batch(self,root):
         batch_list = self.batchlist.get(0,END)
         for_batch = Expresso.fetch_channels_for_batch(root)
+        for_batch = sorted(for_batch, reverse=False)
         for channel in tuple(for_batch):
             if channel not in batch_list:
                 self.batchlist.insert(END,channel)
@@ -1094,6 +1099,7 @@ class BatchVidFrame(Frame):
     def add_to_batch(self,root):
         batch_list = self.batchlist.get(0,END)
         for_batch = Expresso.fetch_videos_for_batch(root)
+        for_batch = sorted(for_batch, reverse=False)
         for vid in tuple(for_batch):
             if vid not in batch_list:
                 self.batchlist.insert(END,vid)
@@ -1235,7 +1241,7 @@ class BatchCombinedFrame(Frame):
                                 
         self.analyze_button = Button(self.entryframe, text='Analyze/Save Data')
         #self.plot_button['state'] = 'disabled'
-        self.analyze_button['command'] = self.analyze_batch
+        self.analyze_button['command'] = lambda: self.analyze_batch(root)
         self.analyze_button.grid(column=col+3, row=row, padx=10, pady=2,
                                 sticky=S) 
         
@@ -1249,6 +1255,20 @@ class BatchCombinedFrame(Frame):
         #self.save_button['state'] = 'disabled'
         self.save_ts_button['command'] = lambda: self.save_time_series(root)
         self.save_ts_button.grid(column=col+3, row=row+2, padx=10, pady=2,
+                                sticky=S)         
+        
+        # button to plot meal-aligned distance from cap tip traveled                       
+        self.plot_dist_button = Button(self.entryframe, text='Plot Meal-Aligned Dist')
+        #self.save_button['state'] = 'disabled'
+        self.plot_dist_button['command'] = lambda: self.plot_meal_aligned_dist(root)
+        self.plot_dist_button.grid(column=col+4, row=row, padx=10, pady=2,
+                                sticky=S)         
+                                
+        # button to plot meal-aligned speed                            
+        self.plot_vel_button = Button(self.entryframe, text='Plot Meal-Aligned Speed')
+        #self.save_button['state'] = 'disabled'
+        self.plot_vel_button['command'] = lambda: self.plot_meal_aligned_vel(root)
+        self.plot_vel_button.grid(column=col+4, row=row+1, padx=10, pady=2,
                                 sticky=S)         
                                 
         self.selection_ind = []                        
@@ -1268,9 +1288,10 @@ class BatchCombinedFrame(Frame):
     def add_to_batch(self,root):
         batch_list = self.batchlist.get(0,END)
         for_batch = Expresso.fetch_data_for_batch(root)
-        for vid in tuple(for_batch):
-            if vid not in batch_list:
-                self.batchlist.insert(END,vid)
+        for_batch = sorted(for_batch, reverse=False)
+        for ent in tuple(for_batch):
+            if ent not in batch_list:
+                self.batchlist.insert(END,ent)
     
     def rm_channel(self):
         selected = sorted(self.batchlist.curselection(), reverse=True)
@@ -1280,7 +1301,7 @@ class BatchCombinedFrame(Frame):
     def clear_batch(self):
         self.batchlist.delete(0,END)         
         
-    def analyze_batch(self):
+    def analyze_batch(self,root):
         batch_list = self.batchlist.get(0,END)
         if len(batch_list) < 1:
             tkMessageBox.showinfo(title='Error',
@@ -1304,7 +1325,7 @@ class BatchCombinedFrame(Frame):
                # perform feeding analysis
                channel_entry = basic2channel(data_file)
                dset, frames, channel_t, dset_smooth, bouts, volumes = \
-                            Expresso.get_channel_data(parent,channel_entry,
+                            Expresso.get_channel_data(root,channel_entry,
                                                     DEBUG_FLAG=False,
                                                     combFlagArg=True) 
                
@@ -1358,7 +1379,24 @@ class BatchCombinedFrame(Frame):
             data_suffix = '_COMBINED_DATA.hdf5'
             data_filenames = [ent + data_suffix for ent in batch_list]
             save_comb_time_series(data_filenames)
-
+    
+    def plot_meal_aligned_dist(self,root):
+        batch_list = self.batchlist.get(0,END)
+        if len(batch_list) < 1:
+            tkMessageBox.showinfo(title='Error',
+                                message='Add data to batch box for batch analysis')
+            return 
+        else:
+            fig = plot_bout_aligned_var(batch_list, var='dist_mag')
+    
+    def plot_meal_aligned_vel(self,root):
+        batch_list = self.batchlist.get(0,END)
+        if len(batch_list) < 1:
+            tkMessageBox.showinfo(title='Error',
+                                message='Add data to batch box for batch analysis')
+            return 
+        else:
+            fig = plot_bout_aligned_var(batch_list, var='vel_mag')
 
 #==============================================================================
 # Main class for GUI
@@ -1503,7 +1541,7 @@ class Expresso:
             self.comb_analysis_flag.set(1)
     
     #===================================================================     
-    def sync_listboxes(self):
+    def sync_listboxes_intersect(self):
         """Repopulate the video and channel listboxes so that they match"""
         N_ch_entries = self.channeldata_frame.channellist.size()
         channel_entries = self.channeldata_frame.channellist.get(0,N_ch_entries)
@@ -1518,7 +1556,7 @@ class Expresso:
         vid_entries_set = set(vid_entries_refrm)
         channel_entries_set = set(channel_entries_refrm)
         entry_intersect = vid_entries_set.intersection(channel_entries_set)
-        entry_intersect = list(entry_intersect)
+        entry_intersect = sorted(list(entry_intersect),reverse=False)
         
         # delete old entries
         self.channeldata_frame.channellist.delete(0,N_ch_entries) 
@@ -1532,6 +1570,36 @@ class Expresso:
             ent_ch = basic2channel(ent)
             self.channeldata_frame.channellist.insert(END,ent_ch)
     
+    #===================================================================     
+    def sync_listboxes_union(self):
+        """Repopulate the video and channel listboxes so that they match"""
+        N_ch_entries = self.channeldata_frame.channellist.size()
+        channel_entries = self.channeldata_frame.channellist.get(0,N_ch_entries)
+        N_vid_entries = self.viddata_frame.filelist.size()
+        vid_entries = self.viddata_frame.filelist.get(0,N_vid_entries)
+        
+        # reformat entry types to facilitate comparison
+        vid_entries_refrm = [vid2basic(v_en) for v_en in vid_entries]
+        channel_entries_refrm = [channel2basic(ch) for ch in channel_entries]
+        
+        # find set intersection of listbox entries
+        vid_entries_set = set(vid_entries_refrm)
+        channel_entries_set = set(channel_entries_refrm)
+        entry_union = vid_entries_set.union(channel_entries_set)
+        entry_union = sorted(list(entry_union),reverse=False)
+        
+        # delete old entries
+        self.channeldata_frame.channellist.delete(0,N_ch_entries) 
+        self.viddata_frame.filelist.delete(0,N_vid_entries)
+        
+        # switch back to format for the listboxes and add 
+        for ent in entry_union:
+            ent_vid = basic2vid(ent)
+            self.viddata_frame.filelist.insert(END,ent_vid)
+            
+            ent_ch = basic2channel(ent)
+            self.channeldata_frame.channellist.insert(END,ent_ch)
+            
     #===================================================================
     def sync_select(self):
         """Synchronizes selection for channel and video listboxes"""
@@ -1606,8 +1674,10 @@ class Expresso:
         
         # combined analysis
         self.master.menu_comb = Menu(self.master.menubar)
-        self.master.menu_comb.add_command(label='Synchronize data lists',
-                                          command = self.sync_listboxes)
+        self.master.menu_comb.add_command(label='Synchronize data lists (intersection)',
+                                          command=self.sync_listboxes_intersect)
+        self.master.menu_comb.add_command(label='Synchronize data lists (union)',
+                                          command=self.sync_listboxes_union)
         self.master.menu_comb.add_command(label='Synchronize selection',
                                               command = self.sync_select)
         self.master.menu_comb.add_checkbutton(label='Combine Data Types [toggle]',
@@ -1655,7 +1725,7 @@ class Expresso:
             return files                    
         
         invalid_end = ('VID_INFO.hdf5','TRACKING.hdf5', \
-                                                    'TRACKING_PROCESSED.hdf5')
+                        'TRACKING_PROCESSED.hdf5','COMBINED_DATA.hdf5')
         for ind in selected_ind:
             temp_dir = temp_dirlist[ind]
             for file in os.listdir(temp_dir):
@@ -1771,7 +1841,8 @@ class Expresso:
         if not bad_data_flag:
             if comb_analysis_flag:
                 dset_smooth, bouts, volumes = bout_analysis_wTracking(filename,
-                                                    filekeyname, groupkeyname)
+                                                    filekeyname, groupkeyname,
+                                                    debugBoutFlag=DEBUG_FLAG)
             else:
                 dset_smooth, bouts, volumes = bout_analysis(dset,frames,
                                                         debug_mode=DEBUG_FLAG)

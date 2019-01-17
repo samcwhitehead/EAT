@@ -257,6 +257,8 @@ def get_bg(filename, r, tracking_params=trackingParams, debugFlag=True,
     t_offset = tracking_params['t_offset'] 
     fly_pix_val_max = tracking_params['fly_pix_val_max']
     min_pix_thresh = tracking_params['min_pix_thresh']
+    min_pix_thresh_guess = tracking_params['min_pix_thresh_guess']
+    
                
     cap = cv2.VideoCapture(filename)
     N_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -278,7 +280,7 @@ def get_bg(filename, r, tracking_params=trackingParams, debugFlag=True,
     mean_obj_val = np.array([])
     bbox_list = [] 
     bbox_pad = 10
-    N_bbox_max = 2000 
+    N_bbox_max = 5000 
     
     delta_cm = 0 
     cc = t_offset
@@ -443,7 +445,9 @@ def get_bg(filename, r, tracking_params=trackingParams, debugFlag=True,
             # subtract background
             im_curr = cv2.cvtColor(frame_curr, cv2.COLOR_BGR2GRAY)
             im_curr = cv2.subtract(im_curr,(np.mean(im_curr)-mean_intensity_guess))        
-            bg_sub_curr = cv2.absdiff(bg,im_curr)
+            #bg_sub_curr = cv2.absdiff(bg,im_curr)
+            bg_sub_curr = cv2.subtract(bg,im_curr)
+            
             # get bounding box and crop
             bbox_curr = bbox_list[ridx]
             bbox_curr_pad = enlarge_bbox(bg_sub_curr, bbox_curr, bbox_pad)
@@ -463,17 +467,22 @@ def get_bg(filename, r, tracking_params=trackingParams, debugFlag=True,
         #mean_otsu = np.mean(otsu_thresh_arr)
         std_otsu = np.std(otsu_thresh_arr)
         min_otsu = np.min(otsu_thresh_arr)
-        otsu_low_bound = min_otsu - std_otsu
-        #min_thresh_guess = np.min([11*robust.mad(test_sub_sym),min_pix_thresh]) 
-        min_thresh_guess = np.min([otsu_low_bound,min_pix_thresh]) 
+        otsu_low_bound = min_otsu - std_otsu #3*std_otsu
+        #min_thresh_guess = np.min([11*robust.mad(test_sub_sym),min_pix_thresh_guess]) 
+        min_thresh_guess = np.min([otsu_low_bound,min_pix_thresh_guess]) 
         #print('mean = {:f}'.format(np.mean(test_sub_sym)))
         #print('std = {:f}'.format(np.std(test_sub_sym)))
         min_thresh_guess = int(min_thresh_guess)
         
+        if min_thresh_guess < min_pix_thresh:
+            min_thresh_guess = int(min_pix_thresh)
+            
         pbar.finish()
         cap.release()
         
-        print(min_thresh_guess)
+        #print('')
+        #print(min_thresh_guess)
+        #print('')
         #if debugFlag:
         #    fig, ax = plt.subplots()
         #    ax.hist(otsu_thresh_arr,100)
@@ -520,7 +529,7 @@ def get_bg(filename, r, tracking_params=trackingParams, debugFlag=True,
         test_sub = cv2.absdiff(bg,im_end)
         test_sub = test_sub.ravel() 
         test_sub_sym = np.append(test_sub,-1*test_sub)
-        min_thresh_guess = np.min([11*robust.mad(test_sub_sym),min_pix_thresh]) #25
+        min_thresh_guess = np.min([11*robust.mad(test_sub_sym), min_pix_thresh_guess]) #25
         #print('mean = {:f}'.format(np.mean(test_sub_sym)))
         #print('std = {:f}'.format(np.std(test_sub_sym)))
         min_thresh_guess = int(min_thresh_guess)
@@ -552,7 +561,10 @@ def get_cm(filename,bg,r,tracking_params=trackingParams, mean_intensity=130.0,
     
     kalman.measurementMatrix = np.array([[1,0,0,0],[0,1,0,0]],np.float32)
     kalman.transitionMatrix = np.array([[1,0,1,0],[0,1,0,1],[0,0,1,0],[0,0,0,1]],np.float32)
-    kalman.processNoiseCov =  processNoiseLevel * np.array([[1,0,0,0],[0,1,0,0],[0,0,1,0],[0,0,0,1]],np.float32)
+    kalman.processNoiseCov =  processNoiseLevel*np.float32(np.diag([1,1,10,10]))
+#    kalman.measurementMatrix = np.array([[1,0,0,0,0,0],[0,1,0,0,0,0]],np.float32)
+#    kalman.transitionMatrix = np.array([[1,0,1,0,0.5,0],[0,1,0,1,0,0.5],[0,0,1,0,1,0],[0,0,0,1,0,1],[0,0,0,0,1,0],[0,0,0,0,0,1]], np.float32)
+#    kalman.processNoiseCov =  processNoiseLevel * np.float32(np.diag([1,1,10,10,100,100]))
     kalman.measurementNoiseCov = measurementNoiseLevel * np.array([[1,0],[0,1]],np.float32)
     
     N_MISSING_MAX = tracking_params['n_missing_max'] # number of predicted tracks to allow
@@ -615,12 +627,20 @@ def get_cm(filename,bg,r,tracking_params=trackingParams, mean_intensity=130.0,
         im = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         im1 = cv2.subtract(im,(np.mean(im)-mean_intensity))
     
-        im_minus_bg = cv2.absdiff(bg,im1)
+        #im_minus_bg = cv2.absdiff(bg,im1)
+        im_minus_bg = cv2.subtract(bg,im1)
         im_minus_bg = cv2.GaussianBlur(im_minus_bg,(morphSize,morphSize),0)
         
-        otsu_thresh, _ = cv2.threshold(im_minus_bg.astype('uint8'), \
+        # use a bounding box to mask image?
+        if bbox:
+            im_minus_bg_crop = get_cropped_im(im_minus_bg,bbox)
+            otsu_thresh, _ = cv2.threshold(im_minus_bg_crop.astype('uint8'), \
+                                0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        else:
+            otsu_thresh, _ = cv2.threshold(im_minus_bg.astype('uint8'), \
                                 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         
+        # now apply threshold
         _, th_otsu = cv2.threshold(im_minus_bg.astype('uint8'), \
                                 np.max([otsu_thresh, min_thresh]), \
                                 255, cv2.THRESH_BINARY)
@@ -706,12 +726,16 @@ def get_cm(filename,bg,r,tracking_params=trackingParams, mean_intensity=130.0,
         # if you've detected a center of mass
         if ~np.isnan(xcm_curr):
             mp = np.array([np.float32(xcm_curr), np.float32(ycm_curr)])
-            kalman.correct(mp)
             tp = kalman.predict()
+            kalman.correct(mp)
+            
                 
             if (ith > N_INIT_IGNORE):
-                x_cm.append(tp[0])
-                y_cm.append(tp[1])
+#                x_cm.append(tp[0])
+#                y_cm.append(tp[1])
+                x_cm.append(np.float32(xcm_curr))
+                y_cm.append(np.float32(ycm_curr))
+                #print('X cm: {}, Y cm {}'.format(mp[0],mp[1]))
             else:
                 x_cm.append(np.float32(xcm_curr))
                 y_cm.append(np.float32(ycm_curr))
@@ -724,16 +748,20 @@ def get_cm(filename,bg,r,tracking_params=trackingParams, mean_intensity=130.0,
             bbox = enlarge_bbox(th_otsu, bbox, bbox_pad)
             
         # if you haven't detected a center of mass, but you did recently:
-        elif np.isnan(xcm_curr) and (N_MISSING_COUNTER < N_MISSING_MAX):
+        elif np.isnan(xcm_curr) and (N_MISSING_COUNTER < N_MISSING_MAX) and \
+                                                        (ith > N_INIT_IGNORE):
             tp = kalman.predict()
             x_cm.append(tp[0])
             y_cm.append(tp[1])
+#            x_cm.append(np.nan)
+#            y_cm.append(np.nan)
             N_MISSING_COUNTER += 1
             if bbox:
                 bbox = enlarge_bbox(th_otsu, bbox, bbox_pad)
             
         # if you haven't detected center of mass in a while
         else:
+            tp = kalman.predict()
             x_cm.append(np.nan)
             y_cm.append(np.nan)
             dropped_frames.append(ith)
@@ -1108,7 +1136,8 @@ def process_visual_expresso(DATA_PATH, DATA_FILENAME, PARAMS=trackingParams,
     VEL_THRESH = PARAMS['vel_thresh']           # (cm/s) min speed for the fly to be 'moving' 
     
     LABEL_FONTSIZE = PARAMS['label_fontsize']  # for any plots that come up in the script
-    
+    filt_order = 4
+    filt_level = 2.0
     #------------------------------------------------------------------------------
     
     #=======================================
@@ -1144,23 +1173,29 @@ def process_visual_expresso(DATA_PATH, DATA_FILENAME, PARAMS=trackingParams,
     # Interpolate, filter, and smooth
     #=======================================
     dt = np.mean(np.diff(t))
+    fs = 1.0/dt
+    b_filt, a_filt = signal.butter(filt_order,filt_level/fs)
     
     
     # interpolate through nan values with a spline
     
-    xcm_interp = interpolate_tracks(xcm_curr)
-    ycm_interp = interpolate_tracks(ycm_curr)
+    interp_idx = np.logical_or(np.isnan(xcm_curr), np.isnan(ycm_curr))
+    xcm_interp = interpolate.interp1d(t[~interp_idx],xcm_curr[~interp_idx],
+                         kind='linear', fill_value='extrapolate')
+    ycm_interp = interpolate.interp1d(t[~interp_idx],ycm_curr[~interp_idx],
+                         kind='linear', fill_value='extrapolate')
+                         
+    #xcm_interp = interpolate_tracks(xcm_curr)
+    #ycm_interp = interpolate_tracks(ycm_curr)
     
-    xcm_interp = remove_nubs(xcm_interp)
-    ycm_interp = remove_nubs(ycm_interp)
+    #xcm_interp = remove_nubs(xcm_interp)
+    #ycm_interp = remove_nubs(ycm_interp)
     
-    interp_idx = np.logical_or(np.isnan(xcm_interp), np.isnan(ycm_interp))
+    #xcm_interp[interp_idx] = np.nan
+    #ycm_interp[interp_idx] = np.nan
     
-    xcm_interp[interp_idx] = np.nan
-    ycm_interp[interp_idx] = np.nan
-    
-    xcm_interp = interp_nans(xcm_interp) 
-    ycm_interp = interp_nans(ycm_interp)
+    #xcm_interp = interp_nans(xcm_interp) 
+    #ycm_interp = interp_nans(ycm_interp)
     # kalman filter
     #filtered_states = kalman_filt(xcm_curr,ycm_curr)
     #xcm_interp = filtered_states[:,0]
@@ -1175,12 +1210,16 @@ def process_visual_expresso(DATA_PATH, DATA_FILENAME, PARAMS=trackingParams,
     #ycm_filt = signal.savgol_filter(ycm_interp,SAV_GOL_WINDOW, SAV_GOL_ORDER)
     
     # hampel filter for outlier detection
-    xcm_hampel = hampel(xcm_interp, HAMPEL_K, HAMPEL_SIGMA)   
-    ycm_hampel = hampel(ycm_interp, HAMPEL_K, HAMPEL_SIGMA) 
+    #xcm_hampel = hampel(xcm_interp, HAMPEL_K, HAMPEL_SIGMA)   
+    #ycm_hampel = hampel(ycm_interp, HAMPEL_K, HAMPEL_SIGMA) 
+    
+    # low pass filter
+    xcm_filt = signal.filtfilt(b_filt,a_filt,xcm_interp(t))
+    ycm_filt = signal.filtfilt(b_filt,a_filt,ycm_interp(t))
     
     # fit smoothing spline to calculate derivative
-    sp_xcm = interpolate.UnivariateSpline(t,xcm_hampel,s=SMOOTHING_FACTOR)
-    sp_ycm = interpolate.UnivariateSpline(t,ycm_hampel,s=SMOOTHING_FACTOR)
+    sp_xcm = interpolate.UnivariateSpline(t,xcm_filt,s=SMOOTHING_FACTOR)
+    sp_ycm = interpolate.UnivariateSpline(t,ycm_filt,s=SMOOTHING_FACTOR)
     
     sp_xcm_vel = sp_xcm.derivative(n=1)  
     sp_ycm_vel = sp_ycm.derivative(n=1)
@@ -1787,3 +1826,25 @@ def batch_plot_heatmap(VID_FILENAMES, bin_size = 0.1, SAVE_FLAG = False,
     if SAVE_FLAG:
         print('under construction')
 #------------------------------------------------------------------------------
+# function to undo the transformation that the code does to take pixel 
+#  coordinates and turn them into tip-centered centimeter coordinates
+def invert_coord_transform(xcm, ycm, pix2cm, cap_tip, cap_tip_orient ):
+    if cap_tip_orient == 'T': 
+        xcm_pix = (1.0/pix2cm)*xcm + cap_tip[0]
+        ycm_pix = (1.0/pix2cm)*ycm + cap_tip[1]
+    elif cap_tip_orient == 'B':
+        xcm_pix = cap_tip[0] - (1.0/pix2cm)*xcm
+        ycm_pix = cap_tip[1] - (1.0/pix2cm)*ycm
+    elif cap_tip_orient == 'L':
+        xcm_pix = (1.0/pix2cm)*ycm + cap_tip[1]
+        ycm_pix = (1.0/pix2cm)*xcm + cap_tip[0]
+    elif cap_tip_orient == 'R':
+        xcm_pix = cap_tip[1] - (1.0/pix2cm)*ycm 
+        ycm_pix = cap_tip[0] - (1.0/pix2cm)*xcm
+    else:
+        print('Cap tip orientation is invalid')
+        xcm_pix = [] 
+        ycm_pix = []
+    
+    return (xcm_pix, ycm_pix)
+#------------------------------------------------------------------------------       
