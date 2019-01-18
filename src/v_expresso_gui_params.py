@@ -62,7 +62,8 @@ trackingParams = {'fly_size_range' : [20, 100] ,
             'hampel_k' : 11 , 
             'hampel_sigma' : 3 }
 
-initDirectories = ["F:\\Expresso GUI\\for_testing\\fewbigmealsevents", 
+initDirectories = ["H:\\v_expresso data\\Feeding_annotation_videos",
+                   "F:\\Expresso GUI\\for_testing\\fewbigmealsevents", 
                      "F:\\Expresso GUI\\for_testing\\fewsmallmealevents",
                      "F:\\Expresso GUI\\for_testing\\manysmallmeals",
                      "F:\\Expresso GUI\\for_testing\\nodrinkingevents",
@@ -70,7 +71,6 @@ initDirectories = ["F:\\Expresso GUI\\for_testing\\fewbigmealsevents",
                      "F:\\Expresso GUI\\for_testing\\long_data_files",
                      "F:\\Expresso GUI\\Saumya Annotations\\annotations_expresso_data",
                      "C:\\Users\Fruit Flies\\Documents\\Python Scripts\\Visual Expresso GUI\\dat\\bout_annotations\\data",
-                     "H:\\v_expresso data\\Feeding_annotation_videos",
                      "H:\\v_expresso data\\MATRIX_DEBUG\\8hr_1mM",
                      "H:\\v_expresso data\\staci example video"]
              

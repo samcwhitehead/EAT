@@ -197,8 +197,8 @@ class reviewTool:
         
         #--------------------------------------------
         # where to look for data
-        if os.path.exists(initDirectories[8]):
-            self.init_dir = initDirectories[8]
+        if os.path.exists(initDirectories[0]):
+            self.init_dir = initDirectories[0]
         else:
             self.init_dir = sys.path[0]
         #--------------------------------------------
