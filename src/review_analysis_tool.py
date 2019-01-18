@@ -197,7 +197,10 @@ class reviewTool:
         
         #--------------------------------------------
         # where to look for data
-        self.init_dir = initDirectories[8]
+        if os.path.exists(initDirectories[8]):
+            self.init_dir = initDirectories[8]
+        else:
+            self.init_dir = sys.path[0]
         #--------------------------------------------
         # image display settings
         self.im_height = 300

@@ -845,13 +845,13 @@ class BatchFrame(Frame):
                                 
         self.plot_button = Button(self.entryframe, text='Plot Batch Analysis')
         #self.plot_button['state'] = 'disabled'
-        self.plot_button['command'] = self.plot_batch
+        self.plot_button['command'] = lambda: self.plot_batch(root)
         self.plot_button.grid(column=col+3, row=row, padx=10, pady=2,
                                 sticky=S) 
         
         self.save_button = Button(self.entryframe, text='Save Batch Results')
         #self.save_button['state'] = 'disabled'
-        self.save_button['command'] = self.save_batch
+        self.save_button['command'] = lambda: self.save_batch(root)
         self.save_button.grid(column=col+3, row=row+1, padx=10, pady=2,
                                 sticky=S)                        
         
@@ -891,9 +891,9 @@ class BatchFrame(Frame):
     def clear_batch(self):
         self.batchlist.delete(0,END)         
         
-    def plot_batch(self):
+    def plot_batch(self,root):
         batch_list = self.batchlist.get(0,END)
-        comb_analysis_flag = parent.comb_analysis_flag.get()
+        comb_analysis_flag = root.comb_analysis_flag.get()
         if len(batch_list) < 1:
             tkMessageBox.showinfo(title='Error',
                                 message='Add data to batch box for batch analysis')
@@ -915,9 +915,9 @@ class BatchFrame(Frame):
              
              #self.save_button['state'] = 'enabled'   
     
-    def save_batch(self):
+    def save_batch(self,root):
         batch_list = self.batchlist.get(0,END)
-        comb_analysis_flag = parent.comb_analysis_flag.get()
+        comb_analysis_flag = root.comb_analysis_flag.get()
         if len(batch_list) < 1:
             tkMessageBox.showinfo(title='Error',
                                 message='Add data to batch box for batch analysis')
@@ -949,7 +949,7 @@ class BatchFrame(Frame):
                                 message='Add data to batch box for batch analysis')
             return 
         else:
-            save_dir = Expresso.get_dir(parent)
+            save_dir = Expresso.get_dir(root)
             
             for entry in batch_list:
                                 
