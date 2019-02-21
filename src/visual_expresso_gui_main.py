@@ -1135,7 +1135,7 @@ class BatchVidFrame(Frame):
                    print('Error:')
                    print(e)
         self.vid_file_list = batch_list
-               
+          
     def save_batch(self):
         batch_list = self.batchlist.get(0,END)
         if len(batch_list) < 1:
@@ -1257,18 +1257,25 @@ class BatchCombinedFrame(Frame):
         self.save_ts_button.grid(column=col+3, row=row+2, padx=10, pady=2,
                                 sticky=S)         
         
+        # button to combine data types                     
+        self.plot_heatmap_button = Button(self.entryframe, text='Combine Data Types')
+        #self.save_button['state'] = 'disabled'
+        self.plot_heatmap_button['command'] = lambda: self.comb_data_batch(root)
+        self.plot_heatmap_button.grid(column=col+4, row=row, padx=10, pady=2,
+                                sticky=S)    
+                                
         # button to plot meal-aligned distance from cap tip traveled                       
         self.plot_dist_button = Button(self.entryframe, text='Plot Meal-Aligned Dist')
         #self.save_button['state'] = 'disabled'
         self.plot_dist_button['command'] = lambda: self.plot_meal_aligned_dist(root)
-        self.plot_dist_button.grid(column=col+4, row=row, padx=10, pady=2,
+        self.plot_dist_button.grid(column=col+4, row=row+1, padx=10, pady=2,
                                 sticky=S)         
                                 
         # button to plot meal-aligned speed                            
         self.plot_vel_button = Button(self.entryframe, text='Plot Meal-Aligned Speed')
         #self.save_button['state'] = 'disabled'
         self.plot_vel_button['command'] = lambda: self.plot_meal_aligned_vel(root)
-        self.plot_vel_button.grid(column=col+4, row=row+1, padx=10, pady=2,
+        self.plot_vel_button.grid(column=col+4, row=row+2, padx=10, pady=2,
                                 sticky=S)         
                                 
         self.selection_ind = []                        
@@ -1380,6 +1387,39 @@ class BatchCombinedFrame(Frame):
             data_filenames = [ent + data_suffix for ent in batch_list]
             save_comb_time_series(data_filenames)
     
+    def comb_data_batch(self,root):
+        batch_list = self.batchlist.get(0,END)
+        if len(batch_list) < 1:
+            tkMessageBox.showinfo(title='Error',
+                                message='Add data to batch box for batch analysis')
+            return 
+        else:
+           for data_file in batch_list:
+               
+               # LOAD tracking analysis
+               file_path, filename_no_ext = os.path.split(data_file)
+               tracking_filename = filename_no_ext + "_TRACKING_PROCESSED.hdf5"
+               track_path_full = os.path.join(file_path, tracking_filename)
+               if os.path.exists(track_path_full):               
+                   flyTrackData = hdf5_to_flyTrackData(file_path, 
+                                                       tracking_filename)
+               else:
+                   print('Cannot find file: {}'.format(track_path_full))
+                   continue
+               
+               # perform feeding analysis
+               channel_entry = basic2channel(data_file)
+               dset, frames, channel_t, dset_smooth, bouts, volumes = \
+                            Expresso.get_channel_data(root,channel_entry,
+                                                    DEBUG_FLAG=False,
+                                                    combFlagArg=True) 
+               
+               # merge data into one dict structure                                     
+               flyCombinedData = merge_v_expresso_data(dset,dset_smooth,
+                                                       channel_t,frames,bouts, 
+                                                       volumes, flyTrackData) 
+               flyCombinedData_to_hdf5(flyCombinedData)
+        
     def plot_meal_aligned_dist(self,root):
         batch_list = self.batchlist.get(0,END)
         if len(batch_list) < 1:

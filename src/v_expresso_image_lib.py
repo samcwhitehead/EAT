@@ -526,13 +526,13 @@ def get_bg(filename, r, tracking_params=trackingParams, debugFlag=True,
         
         #mean_intensity_guess = np.mean(bg.ravel())
         
-        test_sub = cv2.absdiff(bg,im_end)
-        test_sub = test_sub.ravel() 
-        test_sub_sym = np.append(test_sub,-1*test_sub)
-        min_thresh_guess = np.min([11*robust.mad(test_sub_sym), min_pix_thresh_guess]) #25
+        #test_sub = cv2.absdiff(bg,im_end)
+        #test_sub = test_sub.ravel() 
+        #test_sub_sym = np.append(test_sub,-1*test_sub)
+        #min_thresh_guess = np.min([11*robust.mad(test_sub_sym), min_pix_thresh_guess]) #25
         #print('mean = {:f}'.format(np.mean(test_sub_sym)))
         #print('std = {:f}'.format(np.std(test_sub_sym)))
-        min_thresh_guess = int(min_thresh_guess)
+        min_thresh_guess = int(min_pix_thresh_guess)
         
         cap.release()
     
