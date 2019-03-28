@@ -843,13 +843,13 @@ class BatchFrame(Frame):
         self.clear_button.grid(column=col+2, row=row+2, padx=10, pady=2,
                                 sticky=N)
                                 
-        self.plot_button = Button(self.entryframe, text='Plot Batch Analysis')
+        self.plot_button = Button(self.entryframe, text='Plot Channel Analysis')
         #self.plot_button['state'] = 'disabled'
         self.plot_button['command'] = lambda: self.plot_batch(root)
         self.plot_button.grid(column=col+3, row=row, padx=10, pady=2,
                                 sticky=S) 
         
-        self.save_button = Button(self.entryframe, text='Save Batch Results')
+        self.save_button = Button(self.entryframe, text='Save Channel Summary')
         #self.save_button['state'] = 'disabled'
         self.save_button['command'] = lambda: self.save_batch(root)
         self.save_button.grid(column=col+3, row=row+1, padx=10, pady=2,
@@ -1306,7 +1306,13 @@ class BatchCombinedFrame(Frame):
         self.plot_vel_button['command'] = lambda: self.plot_meal_aligned_vel(root)
         self.plot_vel_button.grid(column=col+4, row=row+2, padx=10, pady=2,
                                 sticky=S)         
-                                
+        
+        # button to plot feeding data raster/histogram with video correction                        
+        self.plot_ch_batch_button = Button(self.entryframe, text='Plot Channel Analysis')
+        #self.save_button['state'] = 'disabled'
+        self.plot_ch_batch_button['command'] = lambda: self.plot_channel_batch(root)
+        self.plot_ch_batch_button.grid(column=col+4, row=row+3, padx=10, pady=2,
+                                sticky=S)                                 
         self.selection_ind = []                        
 
     def on_select(self, selection):
@@ -1493,6 +1499,32 @@ class BatchCombinedFrame(Frame):
             return 
         else:
             fig = plot_bout_aligned_var(batch_list, var='vel_mag')
+            
+    def plot_channel_batch(self,root):
+        batch_list = self.batchlist.get(0,END)
+        comb_analysis_flag = root.comb_analysis_flag.get()
+        if len(batch_list) < 1:
+            tkMessageBox.showinfo(title='Error',
+                                message='Add data to batch box for batch analysis')
+            return 
+        else:
+            try:
+                tmin = int(self.tmin_entry.get())
+                tmax = int(self.tmax_entry.get())
+                tbin = int(self.tbin_entry.get())
+            except:
+                tkMessageBox.showinfo(title='Error',
+                                message='Set time range and bin size')
+                return                
+            
+            # run and save feeding analysis (a little redundant)
+            batch_list_ch = [basic2channel(ent) for ent in batch_list]
+                    
+            
+            (bouts_list, name_list, volumes_list, consumption_per_fly, 
+             duration_per_fly, latency_per_fly) = \
+                 batch_bout_analysis(batch_list_ch,tmin,tmax,tbin,plotFlag=True, 
+                                     combAnalysisFlag=True)
 
 #==============================================================================
 # Main class for GUI

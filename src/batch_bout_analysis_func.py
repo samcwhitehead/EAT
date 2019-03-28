@@ -38,30 +38,44 @@ def batch_bout_analysis(channel_entry_list, tmin, tmax, tbin_size, plotFlag=Fals
     name_list = [] 
     t_global = np.array([])
     
+     # limits for time axis. assigned to full t range if no values are entered
+    if np.isnan(tmin):
+        tmin = np.min(t_global)
+    if np.isnan(tmax):
+        tmax = np.max(t_global)
+    if np.isnan(tbin_size):
+        tbin_size = 20 
+        
+        
     for entry in channel_entry_list:
         filepath, filekeyname, groupkeyname = entry.split(', ',2)
         dset, t = load_hdf5(filepath,filekeyname,groupkeyname)        
         
         bad_data_flag, dset, t, frames = check_data_set(dset,t)
         
+        # error case for bad dataset
         if bad_data_flag:
-            #dset = np.array([])
-            #frames = np.array([])
-            #sys.exit("Bad dataset; try different group or dataset number")
             messagestr = "Bad dataset: " + filepath + ", " + filekeyname + ", " + groupkeyname
             print(messagestr)
             continue 
-        
-        # find global time (won't be exact, but should only be off by O(ms))
-        if t.size > t_global.size:
-            t_global = t
-        
+    
+        # analyze each channel, with or without video data as aid        
         if combAnalysisFlag:
             dset_smooth, bouts, volumes = bout_analysis_wTracking(filepath,
                                                     filekeyname, groupkeyname)
         else:
             dset_smooth, bouts, volumes = bout_analysis(dset,frames)
         
+        # trim analysis output based on time limits
+        if not ( np.isnan(tmin) or np.isnan(tmax)):
+            dset_smooth, bouts, volumes, t = trim_bout_data(dset_smooth,bouts,
+                                                            volumes,t,tmin,tmax)
+        
+        # find global time (won't be exact, but should only be off by O(ms))
+        if t.size > t_global.size:
+            t_global = t
+        
+        # add data to lists 
         bouts_list.append(bouts)
         dset_smooth_list.append(dset_smooth)
         volumes_list.append(volumes)
@@ -74,14 +88,14 @@ def batch_bout_analysis(channel_entry_list, tmin, tmax, tbin_size, plotFlag=Fals
         name_full = name + ", " + filekeyname + ", " + groupkeyname
         name_list.append(name_full)
     
-    # in case there are not inputs for min, max, and bin size for time
+    # limits for time axis. assigned to full t range if no values are entered
     if np.isnan(tmin):
         tmin = np.min(t_global)
     if np.isnan(tmax):
         tmax = np.max(t_global)
     if np.isnan(tbin_size):
-        tbin_size = 20 
-        
+        tbin_size = 20     
+    
     # calculate raster array 
     idx_min = np.searchsorted(t_global,tmin,side='right')
     idx_max = np.searchsorted(t_global,tmax,side='right')
@@ -211,4 +225,27 @@ def save_batch_xlsx(save_name, bouts_list,name_list,volumes_list,
             ws_events.append(row_curr) 
             
     wb.save(save_name)
-      
+
+#------------------------------------------------------------------------------
+#------------------------------------------------------------------------------    
+# trim data sets and bout data based on time limits
+def trim_bout_data(dset_smooth, bouts, volumes, t, tmin, tmax):
+    # first find channel time indices corresponding to max and min t
+    idx_min = np.searchsorted(t,tmin,side='right')
+    idx_max = np.searchsorted(t,tmax,side='right')
+    
+    # make sure that these indices don't exceed array bounds?
+    #    
+    
+    # now cut the input variables based on time range
+    dset_smooth = dset_smooth[idx_min:idx_max]
+    t = t[idx_min:idx_max]
+    
+    # ...including bout and volume data
+    volumes = volumes[np.logical_and(bouts[1,:]<idx_max, bouts[0,:]>idx_min)]
+    #volumes = volumes[bouts[0,:]>idx_min]
+    #bouts_temp = bouts.copy()
+    bouts = bouts[:,bouts[1,:]<idx_max]
+    bouts = bouts[:,bouts[0,:]>idx_min]
+    
+    return (dset_smooth, bouts, volumes, t )
