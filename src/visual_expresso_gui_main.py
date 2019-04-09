@@ -1270,25 +1270,39 @@ class BatchCombinedFrame(Frame):
                                  sticky=S)
 
         # button to combine data types                     
-        self.plot_heatmap_button = Button(self.entryframe, text='Combine Data Types')
-        # self.save_button['state'] = 'disabled'
-        self.plot_heatmap_button['command'] = lambda: self.comb_data_batch(root)
-        self.plot_heatmap_button.grid(column=col + 4, row=row, padx=10, pady=2,
+        self.comb_data_button = Button(self.entryframe, text='Combine Data Types')
+        # self.comb_data['state'] = 'disabled'
+        self.comb_data_button['command'] = lambda: self.comb_data_batch(root)
+        self.comb_data_button.grid(column=col + 4, row=row, padx=10, pady=2,
                                       sticky=S)
 
-        # button to plot meal-aligned distance from cap tip traveled                       
-        self.plot_dist_button = Button(self.entryframe, text='Plot Meal-Aligned Dist')
+        # button to plot heatmap of position data                    
+        self.plot_heatmap_button = Button(self.entryframe, text='Plot Heatmap')
         # self.save_button['state'] = 'disabled'
-        self.plot_dist_button['command'] = lambda: self.plot_meal_aligned_dist(root)
-        self.plot_dist_button.grid(column=col + 4, row=row + 1, padx=10, pady=2,
-                                   sticky=S)
+        self.plot_heatmap_button['command'] = lambda: self.plot_heatmap_batch(root)
+        self.plot_heatmap_button.grid(column=col + 4, row=row + 1, padx=10, pady=2,
+                                      sticky=S)
 
-        # button to plot meal-aligned speed                            
-        self.plot_vel_button = Button(self.entryframe, text='Plot Meal-Aligned Speed')
+        # button to plot cumulative distance traveled                       
+        self.plot_cum_dist_button = Button(self.entryframe, text='Plot Cumulative Distance')
         # self.save_button['state'] = 'disabled'
-        self.plot_vel_button['command'] = lambda: self.plot_meal_aligned_vel(root)
-        self.plot_vel_button.grid(column=col + 4, row=row + 2, padx=10, pady=2,
-                                  sticky=S)
+        self.plot_cum_dist_button['command'] = lambda: self.plot_cum_dist_batch(root)
+        self.plot_cum_dist_button.grid(column=col + 4, row=row + 2, padx=10, pady=2,
+                                       sticky=S)
+                                       
+#        # button to plot meal-aligned distance from cap tip traveled                       
+#        self.plot_dist_button = Button(self.entryframe, text='Plot Meal-Aligned Dist')
+#        # self.save_button['state'] = 'disabled'
+#        self.plot_dist_button['command'] = lambda: self.plot_meal_aligned_dist(root)
+#        self.plot_dist_button.grid(column=col + 4, row=row + 1, padx=10, pady=2,
+#                                   sticky=S)
+#
+#        # button to plot meal-aligned speed                            
+#        self.plot_vel_button = Button(self.entryframe, text='Plot Meal-Aligned Speed')
+#        # self.save_button['state'] = 'disabled'
+#        self.plot_vel_button['command'] = lambda: self.plot_meal_aligned_vel(root)
+#        self.plot_vel_button.grid(column=col + 4, row=row + 2, padx=10, pady=2,
+#                                  sticky=S)
 
         # button to plot feeding data raster/histogram with video correction                        
         self.plot_ch_batch_button = Button(self.entryframe, text='Plot Channel Analysis')
@@ -1296,6 +1310,7 @@ class BatchCombinedFrame(Frame):
         self.plot_ch_batch_button['command'] = lambda: self.plot_channel_batch(root)
         self.plot_ch_batch_button.grid(column=col + 4, row=row + 3, padx=10, pady=2,
                                        sticky=S)
+                                       
         self.selection_ind = []
 
     def on_select(self, selection):
@@ -1506,6 +1521,26 @@ class BatchCombinedFrame(Frame):
              duration_per_fly, latency_per_fly, fig_raster, fig_hist) = \
                 batch_bout_analysis(batch_list_ch, tmin, tmax, tbin, plotFlag=True,
                                     combAnalysisFlag=True)
+                                    
+    def plot_cum_dist_batch(self, root):
+        batch_list = self.batchlist.get(0, END)
+        if len(batch_list) < 1:
+            tkMessageBox.showinfo(title='Error',
+                                  message='Add data to batch box for batch analysis')
+            return
+        else:
+            batch_list_vid = [basic2vid(ent) for ent in batch_list]
+            batch_plot_cum_dist(batch_list_vid)
+
+    def plot_heatmap_batch(self, root):
+        batch_list = self.batchlist.get(0, END)
+        if len(batch_list) < 1:
+            tkMessageBox.showinfo(title='Error',
+                                  message='Add data to batch box for batch analysis')
+            return
+        else:
+            batch_list_vid = [basic2vid(ent) for ent in batch_list]
+            batch_plot_heatmap(batch_list_vid)
 
 
 # ==============================================================================
