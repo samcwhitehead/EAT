@@ -159,6 +159,7 @@ def plot_channel_bouts(dset, dset_smooth, t, bouts, figsize=(12, 7),
         
     ax1.set_xlim([t[0],t[-1]])
     ax1.set_ylim([np.amin(dset),np.amax(dset)])
+    # plt.show()
 
     return (fig, ax1, ax2)    
 
