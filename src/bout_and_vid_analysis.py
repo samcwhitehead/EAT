@@ -521,52 +521,78 @@ def plot_bout_aligned_var(basic_entries, var='vel_mag', window=300,
 #------------------------------------------------------------------------------
 # function to save time series of combined data
 def save_comb_time_series(data_filenames):
-    print('under construction')
+    # loop through each data file
+    for data_fn in data_filenames:
+        if not os.path.exists(os.path.abspath(data_fn)):
+            print(data_fn + ' not yet analyzed--failed to save')
+        else:
+            # load combined data file
+            filepath, filename = os.path.split(data_fn)
+            flyCombinedData = hdf5_to_flyCombinedData(filepath, filename)
+            
+            # get save name for csv file
+            csv_filename = os.path.join(filepath, filename + ".csv")
+            column_headers=['Frame', 'Time (s)','Channel Raw (nL)', 
+                            'Channel Smoothed (nL)', 'Feeding (bool)', 
+                            'X Position (cm)','Y Position (cm)', 
+                            'Cumulative Dist. (cm)','X Velocity (cm/s)',
+                            'Y Velocity (cm/s)','Speed (cm/s)','Moving Idx']
+            #---------------------------------------------------------
+            # load in relevant kinematics data
+            t = flyCombinedData['t']
+            frames = np.arange(0,t.size)
+            
+            xcm = flyCombinedData['xcm_smooth']
+            ycm = flyCombinedData['ycm_smooth']
+            cum_dist = flyCombinedData['cum_dist']
+            
+            x_vel = flyCombinedData['xcm_vel']
+            y_vel = flyCombinedData['ycm_vel']
+            vel_mag = flyCombinedData['vel_mag']
+            moving_ind = flyCombinedData['moving_ind']
+            
+            #---------------------------------------------------------
+            # load in relevant bout data
+            # (make sure that time values match up for bouts and tracking)
+            dset_cam, dset_smooth_cam, bouts_cam = interp_channel_time(flyCombinedData)
+            
+            # generate array with same length as t that has "1" if fly is 
+            # feeding and "0" otherwise
+            feeding_boolean = np.zeros([1, dset_cam.size])
+            for i in np.arange(bouts_cam.shape[1]):
+                feeding_boolean[0, bouts_cam[0, i]:bouts_cam[1, i]] = 1
+            
+            #---------------------------------------------------------
+            # combine data into one matrix 
+            row_mat = np.vstack((frames, t, dset_cam, dset_smooth_cam, 
+                                 feeding_boolean, xcm, ycm, cum_dist, x_vel, 
+                                 y_vel, vel_mag, moving_ind ))
+            row_mat = np.transpose(row_mat)
+            
+            #------------------------------------------------------------------
+            # generate csv file, write column headings, then write data in rows
+            if sys.version_info[0] < 3:
+                out_path = open(csv_filename,mode='wb')
+            else:
+                out_path = open(csv_filename, 'w', newline='')
+            
+            # csv writer object    
+            save_writer = csv.writer(out_path)
+            
+            # write headings for filename + data column labels
+            save_writer.writerow([filepath])
+            save_writer.writerow(column_headers)
+            
+            # write data rows
+            for row in row_mat:
+                save_writer.writerow(row)
+                
+            out_path.close()
 
-#    for data_fn in data_filenames:
-#        if not os.path.exists(os.path.abspath(data_fn)):
-#            print(data_fn + ' not yet analyzed--failed to save')
-#        else:
-#
-#        filepath = os.path.splitext(h5_fn)[0]  
-#        with h5py.File(data_fn,'r') as f:
-#            csv_filename = filepath + ".csv" 
-#            t = f['Time']['t'].value
-#            
-#            # get kinematics
-#            try:
-#                xcm = f['BodyCM']['xcm_smooth'].value 
-#                ycm = f['BodyCM']['ycm_smooth'].value 
-#                cum_dist = f['BodyCM']['cum_dist'].value 
-#                x_vel = f['BodyVel']['vel_x'].value 
-#                y_vel = f['BodyVel']['vel_y'].value 
-#                vel_mag = f['BodyVel']['vel_mag'].value 
-#                moving_ind = f['BodyVel']['moving_ind'].value 
-#                
-#                column_headers=['Time (s)','X Position (cm)','Y Position (cm)', 
-#                            'Cumulative Dist. (cm)','X Velocity (cm/s)',
-#                            'Y Velocity (cm/s)','Speed (cm/s)','Moving Idx']
-#                row_mat = np.vstack((t, xcm, ycm, cum_dist, x_vel, y_vel, 
-#                                     vel_mag, moving_ind))
-#                row_mat = np.transpose(row_mat) 
-#            except KeyError:
-#                xcm = f['BodyCM']['xcm'].value 
-#                xcm = f['BodyCM']['ycm'].value 
-#                column_headers = ['Time (s)', 'X CM (cm)', 'Y CM (cm)']
-#                row_mat = np.vstack((t, xcm, ycm))
-#                row_mat = np.transpose(row_mat) 
-#
-#        if sys.version_info[0] < 3:
-#            out_path = open(csv_filename,mode='wb')
-#        else:
-#            out_path = open(csv_filename, 'w', newline='')
-#        save_writer = csv.writer(out_path)
-#        
-#        save_writer.writerow([filepath])
-#        save_writer.writerow(column_headers)
-#           
-#        for row in row_mat:
-#            save_writer.writerow(row)
-#            
-#        out_path.close()
-#    
+                
+         
+            
+            
+
+        
+    

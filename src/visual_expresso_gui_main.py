@@ -551,9 +551,7 @@ class ChannelDataFrame(Frame):
             tkMessageBox.showinfo(title='Error',
                                   message='No feeding bouts to save')
 
-        # ------------------------------------------------------------------------------
-
-
+# ------------------------------------------------------------------------------
 class VideoDataFrame(Frame):
     def __init__(self, parent, col=0, row=0):
         Frame.__init__(self, parent.master)

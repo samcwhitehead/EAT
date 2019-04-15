@@ -72,6 +72,7 @@ initDirectories = ["H:\\v_expresso data\\Feeding_annotation_videos",
                      "F:\\Expresso GUI\\Saumya Annotations\\annotations_expresso_data",
                      "C:\\Users\Fruit Flies\\Documents\\Python Scripts\\Visual Expresso GUI\\dat\\bout_annotations\\data",
                      "H:\\v_expresso data\\MATRIX_DEBUG\\8hr_1mM",
-                     "H:\\v_expresso data\\staci example video"]
+                     "H:\\v_expresso data\\staci example video",
+                     "D:\\v_expresso_data\\Feeding_annotation_videos"]
              
              
