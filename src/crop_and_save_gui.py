@@ -36,6 +36,8 @@ from v_expresso_gui_params import initDirectories
 from v_expresso_pre_process import roi_and_cap_tip_single_video
 from v_expresso_pre_process import crop_and_save_single_video
 
+from refine_tip_estimation import refine_tip 
+
 TKDND_FLAG = True
 if TKDND_FLAG:
     from TkinterDnD2 import *
@@ -343,11 +345,19 @@ class BatchFrame(Frame):
         self.clear_button['command'] = self.clear_batch
         self.clear_button.grid(column=col, row=row+2, padx=10, pady=2,
                                 sticky=N)
-                                
+        
+        # button used to process videos                       
         self.process_button = Button(self.btnframe, text='Process Videos')
         #self.plot_button['state'] = 'disabled'
         self.process_button['command'] = self.process_batch
         self.process_button.grid(column=col, row=row+3, padx=10, pady=2,
+                                sticky=S) 
+                                
+        # button used to refine tip estimate           
+        self.retip_button = Button(self.btnframe, text='Refine Tip Estimate')
+        #self.plot_button['state'] = 'disabled'
+        self.retip_button['command'] = self.redo_tip
+        self.retip_button.grid(column=col, row=row+4, padx=10, pady=5,
                                 sticky=S) 
         
                                 
@@ -423,6 +433,27 @@ class BatchFrame(Frame):
             
             print('Processing completed!')
              #self.save_button['state'] = 'enabled'   
+    def redo_tip(self):
+        batch_list = self.batchlist.get(0,END)
+        if len(batch_list) < 1:
+            tkMessageBox.showinfo(title='Error',
+                                message='Add data to batch box for batch analysis')
+            return 
+        else:
+            for fn in batch_list:
+                # convert avi filename into processed hdf5 name
+                dirpath_curr, filename_curr = os.path.split(fn)
+                data_prefix_curr = os.path.splitext(filename_curr)[0]
+                hdf5_name = data_prefix_curr + "_TRACKING_PROCESSED.hdf5"
+                vid_data_filename = os.path.join(dirpath_curr,hdf5_name)
+                
+                # check if analysis exists, if so refine tip
+                if os.path.exists(vid_data_filename):
+                    refine_tip(vid_data_filename)
+                else:
+                    print('Need to run analysis on {}'.format(vid_data_filename))
+                    continue
+        
     
     
 #------------------------------------------------------------------------------
