@@ -27,7 +27,9 @@ analysisParams = {'wlevel' : 6,  #3 , #4
              'hampel_k' : 9 , 
              'hampel_sigma' : 2 ,
              'pos_der_thresh' : 10.0 ,
-             'feeding_dist_max' : 0.5 , #cm #0.5
+             'feeding_dist_max' : 0.5 , #cm #0.5,
+             'feeding_dist_max_x' : 0.5 , #cm #0.5,
+             'feeding_dist_max_y' : 0.7 , #cm #0.5
              'feeding_dist_min' : 0.35 , # cm #0.375
              'feeding_move_frac_thresh' : 0.5 ,
              'feeding_vel_max' : 0.1 } 
@@ -73,6 +75,7 @@ initDirectories = ["H:\\v_expresso data\\Feeding_annotation_videos",
                      "C:\\Users\Fruit Flies\\Documents\\Python Scripts\\Visual Expresso GUI\\dat\\bout_annotations\\data",
                      "H:\\v_expresso data\\MATRIX_DEBUG\\8hr_1mM",
                      "H:\\v_expresso data\\staci example video",
-                     "D:\\v_expresso_data\\Feeding_annotation_videos"]
+                     "D:\\v_expresso_data\\Feeding_annotation_videos",
+                     "D:\\v_expresso_data\\Dopamine_data"]
              
              

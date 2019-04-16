@@ -616,11 +616,11 @@ class VideoDataFrame(Frame):
             self.filelist.dnd_bind('<<Drop:DND_Text>>', Expresso.vid_file_drop)
 
             self.filelist.drag_source_register(1, DND_TEXT, DND_FILES)
-            # text.drag_source_register(3, DND_TEXT)
+            #text.drag_source_register(3, DND_TEXT) #
 
             self.filelist.dnd_bind('<<DragInitCmd>>', Expresso.drag_init_listbox)
             self.filelist.dnd_bind('<<DragEndCmd>>', Expresso.drag_end)
-            # text.dnd_bind('<<DragInitCmd>>', drag_init_text)
+            #text.dnd_bind('<<DragInitCmd>>', drag_init_text) #
 
         # self.filelist.grid(column=col+1, row=row, padx=10, pady=2, sticky=W)
 
@@ -981,9 +981,28 @@ class BatchVidFrame(Frame):
 
         self.batchlist = Listbox(self.batchlistframe, width=90, height=16,
                                  selectmode=EXTENDED)
+    
+        # now make the Listbox and Text drop targets
+#        if TKDND_FLAG:
+#            self.batchlist.drop_target_register(DND_FILES, DND_TEXT)
 
         self.batchlist.bind('<<ListboxSelect>>', self.on_select)
 
+#        if TKDND_FLAG:
+#            self.batchlist.dnd_bind('<<DropEnter>>', Expresso.drop_enter)
+#            self.batchlist.dnd_bind('<<DropPosition>>', Expresso.drop_position)
+#            self.batchlist.dnd_bind('<<DropLeave>>', Expresso.drop_leave)
+#            self.batchlist.dnd_bind('<<Drop>>', Expresso.file_drop)
+#            self.batchlist.dnd_bind('<<Drop:DND_Files>>', Expresso.vid_file_drop)
+#            self.batchlist.dnd_bind('<<Drop:DND_Text>>', Expresso.vid_file_drop)
+#
+#            self.batchlist.drag_source_register(1, DND_TEXT, DND_FILES)
+#            #text.drag_source_register(3, DND_TEXT) #
+#
+#            self.batchlist.dnd_bind('<<DragInitCmd>>', Expresso.drag_init_listbox)
+#            self.batchlist.dnd_bind('<<DragEndCmd>>', Expresso.drag_end)
+#            #text.dnd_bind('<<DragInitCmd>>', drag_init_text) #
+            
         self.hscroll = Scrollbar(self.batchlistframe)
         self.hscroll.pack(side=BOTTOM, fill=X)
 
@@ -2083,6 +2102,7 @@ class Expresso:
             # print_event_info(event)
             # use a tuple as file list, this should hopefully be handled gracefully
             # by tkdnd and the drop targets like file managers or text editors
+            
             data = ()
             if listbox.curselection():
                 data = tuple([listbox.get(i) for i in listbox.curselection()])

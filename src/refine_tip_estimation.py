@@ -2,6 +2,9 @@
 """
 Created on Mon Jan 14 14:30:47 2019
 
+Script/function to allow users to manually adjust their estimate of the 
+capillary tip location
+ 
 @author: Fruit Flies
 """
 #------------------------------------------------------------------------------
@@ -17,20 +20,13 @@ else:
     from tkinter import filedialog as tkFileDialog
 
 
-from v_expresso_image_lib import get_cap_tip, hdf5_to_flyTrackData
-
+from v_expresso_image_lib import (get_cap_tip, hdf5_to_flyTrackData, 
+                                  invert_coord_transform,
+                                  perform_coord_transform)
 #------------------------------------------------------------------------------
-# select file to refine tip of 
-#data_dir = 'H:/v_expresso data/Feeding_annotation_videos/'
-#data_filename = '83_batch3_XP05_channel_5_TRACKING_PROCESSED.hdf5'
-
-data_filename_full_list = tkFileDialog.askopenfilenames(initialdir=sys.path[0],
-                              title='Select *_TRACKING_PROCESSED.hdf5 to refine tip') 
-
+# MAIN FUNCTION
 #------------------------------------------------------------------------------
-
-for data_filename_full in data_filename_full_list:
-    
+def refine_tip(data_filename_full):    
     data_dir, data_filename = os.path.split(data_filename_full)
     
     # get file paths for data and video info files
@@ -41,6 +37,7 @@ for data_filename_full in data_filename_full_list:
     channel_name = '_'.join(data_filename_split[-4:-2])
     vid_info_name = os.path.join(data_dir, hdf5_name + '_VID_INFO.hdf5')
     
+    print('Re-doing capillary tip estimation for {}'.format(data_header))
     #--------------------------------------------------------------------------
     # open a new window to reselect the cap tip location
     flyTrackData = hdf5_to_flyTrackData(data_dir,data_filename)
@@ -69,3 +66,58 @@ for data_filename_full in data_filename_full_list:
             cap_tip_test = f['CAP_TIP/' + bank_name + '_' + channel_name].value
             print('The saved value is:')
             print(cap_tip_test)
+    
+    #--------------------------------------------------------------------------
+    # recalculate the tracking data with new capillary tip
+    print('Re-centering tracking data...')
+    xcm_old = flyTrackData['xcm']
+    ycm_old = flyTrackData['ycm']
+    xcm_smooth_old = flyTrackData['xcm_smooth']
+    ycm_smooth_old = flyTrackData['ycm_smooth']
+    cap_tip_orient = flyTrackData['cap_tip_orientation']    
+    pix2cm = flyTrackData['PIX2CM']
+    #ROI = flyTrackData['ROI']
+    
+    # -------------------------------------
+    # undo original coordinate transform 
+    xcm_pix, ycm_pix = invert_coord_transform(xcm_old, ycm_old, pix2cm, 
+                                              cap_tip_old, cap_tip_orient)
+    xcm_smooth_pix, ycm_smooth_pix = invert_coord_transform(xcm_smooth_old, 
+                                                            ycm_smooth_old, 
+                                                            pix2cm, cap_tip_old,
+                                                            cap_tip_orient)
+    # ... and then redo with new cap tip                                            
+    xcm_new, ycm_new = perform_coord_transform(xcm_pix, ycm_pix, pix2cm,
+                                               cap_tip_new,cap_tip_orient)
+    xcm_smooth_new, ycm_smooth_new = perform_coord_transform(xcm_smooth_pix, 
+                                                            ycm_smooth_pix, 
+                                                            pix2cm, cap_tip_new,
+                                                            cap_tip_orient)    
+    #--------------------------------------------------------------------------
+    # save these results
+    print('saving new results...')
+    with h5py.File(data_filename_full,'r+') as f:
+        xcm = f['BodyCM/xcm']
+        xcm[...] = xcm_new
+        ycm = f['BodyCM/ycm']
+        ycm[...] = ycm_new
+        
+        xcm_smooth = f['BodyCM/xcm_smooth']
+        xcm_smooth[...] = xcm_smooth_new
+        ycm_smooth = f['BodyCM/ycm_smooth']
+        ycm_smooth[...] = ycm_smooth_new
+        
+    print('Completed update')
+    
+    
+# -----------------------------------------------------------------------------
+# Run main function
+     # -----------------------------------------------------------------------------     
+if __name__ == '__main__':
+    # allow users to select which files to adjust
+    data_filename_full_list = tkFileDialog.askopenfilenames(initialdir=sys.path[0],
+                              title='Select *_TRACKING_PROCESSED.hdf5 to refine tip') 
+    # re-do tip location estimate
+    for data_fn in data_filename_full_list:
+        refine_tip(data_fn)
+    

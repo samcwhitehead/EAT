@@ -968,7 +968,7 @@ def visual_expresso_main(DATA_PATH, DATA_FILENAME, DEBUG_BG_FLAG=False,
         
         # capillary tip is on the right     
         else:
-            cap_tip_orientation = 'L'
+            cap_tip_orientation = 'R'
             xcm_transformed = (PIX2CM*(-1*ycm + cap_tip[1]))[T_OFFSET:]
             ycm_transformed = (PIX2CM*(-1*xcm + cap_tip[0]))[T_OFFSET:]   
             
@@ -1072,14 +1072,14 @@ def visual_expresso_main(DATA_PATH, DATA_FILENAME, DEBUG_BG_FLAG=False,
                                         cap_tip[1] + int(ROI[1])
                     elif cap_tip_orientation == 'L':   
                         xcm_curr_transformed = int(ycm_curr/PIX2CM) + \
-                                        cap_tip[0] + int(ROI[0])
-                        ycm_curr_transformed = int(xcm_curr/PIX2CM) + \
                                         cap_tip[1] + int(ROI[1])
+                        ycm_curr_transformed = int(xcm_curr/PIX2CM) + \
+                                        cap_tip[0] + int(ROI[0])
                     else:
                         xcm_curr_transformed = -1*int(ycm_curr/PIX2CM) + \
-                                        cap_tip[0] + int(ROI[0])
-                        ycm_curr_transformed = -1*int(xcm_curr/PIX2CM) + \
                                         cap_tip[1] + int(ROI[1])
+                        ycm_curr_transformed = -1*int(xcm_curr/PIX2CM) + \
+                                        cap_tip[0] + int(ROI[0])
                                         
                     cv2.circle(frame,(xcm_curr_transformed,
                                       ycm_curr_transformed),1,bgr_vec,-1)
@@ -1828,19 +1828,19 @@ def batch_plot_heatmap(VID_FILENAMES, bin_size = 0.1, SAVE_FLAG = False,
 #------------------------------------------------------------------------------
 # function to undo the transformation that the code does to take pixel 
 #  coordinates and turn them into tip-centered centimeter coordinates
-def invert_coord_transform(xcm, ycm, pix2cm, cap_tip, cap_tip_orient ):
+def invert_coord_transform(xcm, ycm, pix2cm, cap_tip, cap_tip_orient):
     if cap_tip_orient == 'T': 
-        xcm_pix = (1.0/pix2cm)*xcm + cap_tip[0]
-        ycm_pix = (1.0/pix2cm)*ycm + cap_tip[1]
+        xcm_pix = (1.0/pix2cm)*xcm + cap_tip[0] 
+        ycm_pix = (1.0/pix2cm)*ycm + cap_tip[1] 
     elif cap_tip_orient == 'B':
-        xcm_pix = cap_tip[0] - (1.0/pix2cm)*xcm
-        ycm_pix = cap_tip[1] - (1.0/pix2cm)*ycm
+        xcm_pix = cap_tip[0] - (1.0/pix2cm)*xcm 
+        ycm_pix = cap_tip[1] - (1.0/pix2cm)*ycm 
     elif cap_tip_orient == 'L':
-        xcm_pix = (1.0/pix2cm)*ycm + cap_tip[1]
-        ycm_pix = (1.0/pix2cm)*xcm + cap_tip[0]
+        xcm_pix = (1.0/pix2cm)*ycm + cap_tip[1] 
+        ycm_pix = (1.0/pix2cm)*xcm + cap_tip[0] 
     elif cap_tip_orient == 'R':
         xcm_pix = cap_tip[1] - (1.0/pix2cm)*ycm 
-        ycm_pix = cap_tip[0] - (1.0/pix2cm)*xcm
+        ycm_pix = cap_tip[0] - (1.0/pix2cm)*xcm 
     else:
         print('Cap tip orientation is invalid')
         xcm_pix = [] 
@@ -1848,3 +1848,24 @@ def invert_coord_transform(xcm, ycm, pix2cm, cap_tip, cap_tip_orient ):
     
     return (xcm_pix, ycm_pix)
 #------------------------------------------------------------------------------       
+# function to undo the transformation that the code does to take pixel 
+#  coordinates and turn them into tip-centered centimeter coordinates
+def perform_coord_transform(xcm_pix, ycm_pix, pix2cm, cap_tip, cap_tip_orient):
+    if cap_tip_orient == 'T': 
+        xcm = (pix2cm*(xcm_pix - cap_tip[0]))
+        ycm = (pix2cm*(ycm_pix - cap_tip[1]))
+    elif cap_tip_orient == 'B':
+        xcm = (pix2cm*(-1*xcm_pix + cap_tip[0]))
+        ycm = (pix2cm*(-1*ycm_pix + cap_tip[1]))
+    elif cap_tip_orient == 'L':
+        xcm = (pix2cm*(ycm_pix - cap_tip[1]))
+        ycm = (pix2cm*(xcm_pix - cap_tip[0]))
+    elif cap_tip_orient == 'R':
+        xcm = (pix2cm*(-1*ycm_pix + cap_tip[1]))
+        ycm = (pix2cm*(-1*xcm_pix + cap_tip[0]))
+    else:
+        print('Cap tip orientation is invalid')
+        xcm_pix = [] 
+        ycm_pix = []
+    
+    return (xcm, ycm)
