@@ -28,9 +28,9 @@ analysisParams = {'wlevel' : 6,  #3 , #4
              'hampel_sigma' : 2 ,
              'pos_der_thresh' : 10.0 ,
              'feeding_dist_max' : 0.5 , #cm #0.5,
-             'feeding_dist_max_x' : 0.5 , #cm #0.5,
-             'feeding_dist_max_y' : 0.7 , #cm #0.5
              'feeding_dist_min' : 0.35 , # cm #0.375
+             'feeding_dist_min_x' : 0.35 , # cm #0.375
+             'feeding_dist_min_y' : 0.5 , # cm #0.375
              'feeding_move_frac_thresh' : 0.5 ,
              'feeding_vel_max' : 0.1 } 
              

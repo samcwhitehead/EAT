@@ -95,6 +95,8 @@ def bout_analysis_wTracking(filename, bank_name, channel_name, bts=[],
     MOVE_FRAC_THRESH = bout_params['feeding_move_frac_thresh']
     MAX_DIST_THRESH = bout_params['feeding_dist_max']
     MIN_DIST_THRESH = bout_params['feeding_dist_min']
+    MIN_DIST_THRESH_X = bout_params['feeding_dist_min_x']
+    MIN_DIST_THRESH_Y = bout_params['feeding_dist_min_y']
     MAX_VEL_THRESH  = bout_params['feeding_vel_max']
     dist_max_prctile_lvl = 90 # 75
     dist_min_prctile_lvl = 50 # 25 
@@ -188,11 +190,17 @@ def bout_analysis_wTracking(filename, bank_name, channel_name, bts=[],
         max_vel_check = (vel_max_prctile < MAX_VEL_THRESH)
         
         # check that fly is close to cap tip
-        dist_mag_bout = dist_mag[vid_start_idx:vid_end_idx]
-        dist_max_prctile = np.percentile(dist_mag_bout,dist_max_prctile_lvl)
-        dist_min_prctile = np.percentile(dist_mag_bout,dist_min_prctile_lvl)
-        max_dist_check = (dist_max_prctile < MAX_DIST_THRESH)
-        min_dist_check = (dist_min_prctile < MIN_DIST_THRESH)
+#        dist_mag_bout = dist_mag[vid_start_idx:vid_end_idx]
+#        dist_max_prctile = np.percentile(dist_mag_bout,dist_max_prctile_lvl)
+#        dist_min_prctile = np.percentile(dist_mag_bout,dist_min_prctile_lvl)
+#        max_dist_check = (dist_max_prctile < MAX_DIST_THRESH)
+        x_bout = np.abs(xcm_smooth[vid_start_idx:vid_end_idx])
+        y_bout = np.abs(ycm_smooth[vid_start_idx:vid_end_idx])
+        dist_min_prctile_x = np.percentile(x_bout,dist_min_prctile_lvl)
+        dist_min_prctile_y = np.percentile(y_bout,dist_min_prctile_lvl)
+        min_dist_check = (dist_min_prctile_x < MIN_DIST_THRESH_X) & \
+                            (dist_min_prctile_y < MIN_DIST_THRESH_Y)
+            
         
         # make sure that all 3 boolean values are true. this means that:
         #   1) the fly is moving for less than MOVE_FRAC_THRESH of the time
