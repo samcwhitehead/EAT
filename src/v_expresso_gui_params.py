@@ -29,8 +29,8 @@ analysisParams = {'wlevel' : 6,  #3 , #4
              'pos_der_thresh' : 10.0 ,
              'feeding_dist_max' : 0.5 , #cm #0.5,
              'feeding_dist_min' : 0.35 , # cm #0.375
-             'feeding_dist_min_x' : 0.35 , # cm #0.375
-             'feeding_dist_min_y' : 0.5 , # cm #0.375
+             'feeding_dist_min_x' : 0.375 , # cm #0.375
+             'feeding_dist_min_y' : 0.5 , # cm #0.5
              'feeding_move_frac_thresh' : 0.5 ,
              'feeding_vel_max' : 0.1 } 
              
@@ -76,6 +76,7 @@ initDirectories = ["H:\\v_expresso data\\Feeding_annotation_videos",
                      "H:\\v_expresso data\\MATRIX_DEBUG\\8hr_1mM",
                      "H:\\v_expresso data\\staci example video",
                      "D:\\v_expresso_data\\Feeding_annotation_videos",
-                     "D:\\v_expresso_data\\Dopamine_data"]
+                     "D:\\v_expresso_data\\Dopamine_data",
+                     "D:\\v_expresso_data\\Dopamine_data\\updated"]
              
              

@@ -107,6 +107,8 @@ def refine_tip(data_filename_full):
         ycm_smooth = f['BodyCM/ycm_smooth']
         ycm_smooth[...] = ycm_smooth_new
         
+        cap_tip = f['CAP_TIP/cap_tip']
+        cap_tip[...] = cap_tip_new 
     print('Completed update')
     
     
