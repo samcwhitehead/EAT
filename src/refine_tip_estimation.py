@@ -117,7 +117,10 @@ def refine_tip(data_filename_full):
      # -----------------------------------------------------------------------------     
 if __name__ == '__main__':
     # allow users to select which files to adjust
-    data_filename_full_list = tkFileDialog.askopenfilenames(initialdir=sys.path[0],
+    init_path = 'D:/v_expresso_data/Matrix_Data'
+    if not os.path.exists(init_path):
+        init_path = sys.path[0]
+    data_filename_full_list = tkFileDialog.askopenfilenames(initialdir=init_path,
                               title='Select *_TRACKING_PROCESSED.hdf5 to refine tip') 
     # re-do tip location estimate
     for data_fn in data_filename_full_list:

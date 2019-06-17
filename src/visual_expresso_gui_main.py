@@ -485,6 +485,7 @@ class ChannelDataFrame(Frame):
             # get file info for title
             full_channellist_entry = self.channellist.get(self.selection_ind[0])
             filepath, filekeyname, groupkeyname = full_channellist_entry.split(', ', 2)
+            
             dirpath, filename = os.path.split(filepath)
             self.channel_name_full = filename + ", " + filekeyname + ", " + groupkeyname
 
@@ -492,9 +493,9 @@ class ChannelDataFrame(Frame):
 
             menu_save_flag = parent.save_all_plots.get()
             if menu_save_flag:
-                filename_no_ext = os.path.splitext(filename)
+                filename_no_ext, _ = os.path.splitext(filename)
                 save_filename = filename_no_ext + '_' + filekeyname + "_" + \
-                                groupkeyname + '_bout_detection.png'
+                                    groupkeyname + '_bout_detection.png'
                 savename_full = os.path.join(dirpath, save_filename)
                 self.fig.savefig(savename_full)
             # self.save_button['state'] = 'normal'
@@ -1546,8 +1547,18 @@ class BatchCombinedFrame(Frame):
                                   message='Add data to batch box for batch analysis')
             return
         else:
+            # try to grab time limits
+            try:
+                tmin = int(self.tmin_entry.get())
+                tmax = int(self.tmax_entry.get())
+                #tbin = int(self.tbin_entry.get())
+            except:
+                tkMessageBox.showinfo(title='Error',
+                                      message='Set time range and bin size')
+                return
+            # if we have time range info, make plots    
             batch_list_vid = [basic2vid(ent) for ent in batch_list]
-            batch_plot_cum_dist(batch_list_vid)
+            batch_plot_cum_dist(batch_list_vid,t_lim=[tmin,tmax])
 
     def plot_heatmap_batch(self, root):
         batch_list = self.batchlist.get(0, END)
@@ -1556,8 +1567,18 @@ class BatchCombinedFrame(Frame):
                                   message='Add data to batch box for batch analysis')
             return
         else:
+            # try to grab time limits
+            try:
+                tmin = int(self.tmin_entry.get())
+                tmax = int(self.tmax_entry.get())
+                #tbin = int(self.tbin_entry.get())
+            except:
+                tkMessageBox.showinfo(title='Error',
+                                      message='Set time range and bin size')
+                return
+            # if we have time range info, make plots
             batch_list_vid = [basic2vid(ent) for ent in batch_list]
-            batch_plot_heatmap(batch_list_vid)
+            batch_plot_heatmap(batch_list_vid, t_lim=[tmin,tmax])
 
 
 # ==============================================================================

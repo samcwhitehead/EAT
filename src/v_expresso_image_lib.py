@@ -1360,7 +1360,8 @@ def hdf5_to_flyTrackData(DATA_PATH, DATA_FILENAME):
         flyTrackData['BG'] = f['BG']['bg'].value
         
         flyTrackData['PIX2CM'] = f['Params']['pix2cm'].value
-        flyTrackData['trackingParams'] = ast.literal_eval(f['Params']['trackingParams'].value)
+        if (sys.version_info[0] < 3):
+            flyTrackData['trackingParams'] = ast.literal_eval(f['Params']['trackingParams'].value)
         
         t = f['Time']['t'].value 
         flyTrackData['frames'] = np.arange(len(t))
@@ -1522,7 +1523,8 @@ def save_vid_summary(VID_FILENAMES, CSV_FILENAME):
 #------------------------------------------------------------------------------
 
 def plot_body_cm(flyTrackData, plot_color=(1,0,0), SAVE_FLAG=False,
-                 LABEL_FONTSIZE=trackingParams['label_fontsize']):
+                 LABEL_FONTSIZE=trackingParams['label_fontsize'],
+                 x_lim=[-0.8, 0.8], y_lim=[-0.5, 5.0]):
     
     # load data from fly tracking structure
     t = flyTrackData['t']
@@ -1556,11 +1558,9 @@ def plot_body_cm(flyTrackData, plot_color=(1,0,0), SAVE_FLAG=False,
     ax.set_xlabel('X [cm]',fontsize=LABEL_FONTSIZE)
     ax.set_ylabel('Y [cm]',fontsize=LABEL_FONTSIZE)
     ax.set_title( DATA_FILENAME)
+    ax.set_xlim(x_lim)
+    ax.set_ylim(y_lim)
     plt.axis('equal')
-    #ax.set_xlim([np.nanmin(xcm_smoothed_list[mth]), 
-    #             np.nanmax(xcm_smoothed_list[mth])])
-    #ax.set_ylim([np.nanmin(ycm_smoothed_list[mth]), 
-    #             np.nanmax(ycm_smoothed_list[mth])])
     
     if SAVE_FLAG:
         SAVE_PATH = flyTrackData['filepath']
@@ -1705,7 +1705,8 @@ def plot_cum_dist(flyTrackData, plot_color=(1,0,0), SAVE_FLAG=False,
         
 #------------------------------------------------------------------------------
 def batch_plot_cum_dist(VID_FILENAMES, SAVE_FLAG = False,
-                        LABEL_FONTSIZE=trackingParams['label_fontsize']):    
+                        LABEL_FONTSIZE=trackingParams['label_fontsize'], 
+                        t_lim=None):    
     h5_filenames = [] 
     fig_cum_dist, ax_cum_dist = plt.subplots(1,1,figsize=(8,6))
     max_t = 0 
@@ -1745,7 +1746,10 @@ def batch_plot_cum_dist(VID_FILENAMES, SAVE_FLAG = False,
     
     ax_cum_dist.set_xlabel('Time [s]',fontsize=LABEL_FONTSIZE)
     ax_cum_dist.set_ylabel('Cumulative Dist. [cm]',fontsize=LABEL_FONTSIZE)
-    ax_cum_dist.set_xlim([0,max_t])
+    if t_lim:
+        ax_cum_dist.set_xlim(t_lim)
+    else:
+        ax_cum_dist.set_xlim([0,max_t])
           
     plt.legend(loc='upper left',fontsize='x-small')
     plt.tight_layout()
@@ -1757,7 +1761,8 @@ def batch_plot_cum_dist(VID_FILENAMES, SAVE_FLAG = False,
 #------------------------------------------------------------------------------
 
 def batch_plot_heatmap(VID_FILENAMES, bin_size = 0.1, SAVE_FLAG = False,
-                        LABEL_FONTSIZE=trackingParams['label_fontsize']):    
+                        LABEL_FONTSIZE=trackingParams['label_fontsize'], 
+                        t_lim=None):    
     h5_filenames = [] 
     fig_heatmap, ax_heatmap = plt.subplots(1,1,figsize=(4,8))
     
@@ -1792,6 +1797,11 @@ def batch_plot_heatmap(VID_FILENAMES, bin_size = 0.1, SAVE_FLAG = False,
             try:
                 xcm = f['BodyCM']['xcm_smooth'].value
                 ycm = f['BodyCM']['ycm_smooth'].value
+                if t_lim:
+                    t = f['Time']['t'].value
+                    t_lim_idx = (t >= t_lim[0]) & (t <= t_lim[1])
+                    xcm = xcm[t_lim_idx]
+                    ycm = ycm[t_lim_idx]
                 heatmap_curr, _, _ = np.histogram2d(xcm, ycm, [Xedges,Yedges],
                                                     normed=True)
             
@@ -1828,19 +1838,20 @@ def batch_plot_heatmap(VID_FILENAMES, bin_size = 0.1, SAVE_FLAG = False,
 #------------------------------------------------------------------------------
 # function to undo the transformation that the code does to take pixel 
 #  coordinates and turn them into tip-centered centimeter coordinates
-def invert_coord_transform(xcm, ycm, pix2cm, cap_tip, cap_tip_orient):
+def invert_coord_transform(xcm, ycm, pix2cm, cap_tip, cap_tip_orient,
+                           ROI = [0.0, 0.0, 0.0, 0.0]):
     if cap_tip_orient == 'T': 
-        xcm_pix = (1.0/pix2cm)*xcm + cap_tip[0] 
-        ycm_pix = (1.0/pix2cm)*ycm + cap_tip[1] 
+        xcm_pix = (1.0/pix2cm)*xcm + cap_tip[0] + int(ROI[0])
+        ycm_pix = (1.0/pix2cm)*ycm + cap_tip[1] + int(ROI[1])
     elif cap_tip_orient == 'B':
-        xcm_pix = cap_tip[0] - (1.0/pix2cm)*xcm 
-        ycm_pix = cap_tip[1] - (1.0/pix2cm)*ycm 
+        xcm_pix = cap_tip[0] - (1.0/pix2cm)*xcm + int(ROI[0])
+        ycm_pix = cap_tip[1] - (1.0/pix2cm)*ycm + int(ROI[1])
     elif cap_tip_orient == 'L':
-        xcm_pix = (1.0/pix2cm)*ycm + cap_tip[1] 
-        ycm_pix = (1.0/pix2cm)*xcm + cap_tip[0] 
+        xcm_pix = (1.0/pix2cm)*ycm + cap_tip[1] + int(ROI[1])
+        ycm_pix = (1.0/pix2cm)*xcm + cap_tip[0] + int(ROI[0])
     elif cap_tip_orient == 'R':
-        xcm_pix = cap_tip[1] - (1.0/pix2cm)*ycm 
-        ycm_pix = cap_tip[0] - (1.0/pix2cm)*xcm 
+        xcm_pix = cap_tip[1] - (1.0/pix2cm)*ycm + int(ROI[1])
+        ycm_pix = cap_tip[0] - (1.0/pix2cm)*xcm + int(ROI[0])
     else:
         print('Cap tip orientation is invalid')
         xcm_pix = [] 
