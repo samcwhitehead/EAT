@@ -1023,7 +1023,7 @@ class BatchVidFrame(Frame):
         self.entryframe = Frame(self)
         self.entryframe.grid(column=col, row=row + 2, columnspan=4, rowspan=1,
                              pady=4, padx=4, sticky='NESW')
-
+        self.entryframe.grid_columnconfigure(1,minsize=100)
         #        self.btnframe = Frame(parent.master)
         #        self.btnframe.grid(column=col+1, row=row+2, columnspan = 2, rowspan = 1,
         #                           pady = 0, sticky = W)
@@ -1943,9 +1943,10 @@ class Expresso:
 
         for ind in selected_ind:
             temp_dir = temp_dirlist[ind]
-            for file in os.listdir(temp_dir):
-                if file.endswith(tuple(valid_ext)):
-                    files.append(os.path.join(temp_dir, file))
+            for f in os.listdir(temp_dir):
+                crop_chk = ('channel' in f) and ('XP' in f)
+                if f.endswith(tuple(valid_ext)) and crop_chk:
+                    files.append(os.path.join(temp_dir, f))
 
         self.datadir_curr = temp_dir
 
@@ -2176,7 +2177,10 @@ class Expresso:
 
                 files = event.widget.tk.splitlist(event.data)
                 for f in files:
-                    if os.path.exists(f) and f.endswith(tuple(valid_ext)):
+                    exist_chk = os.path.exists(f)
+                    ext_chk = f.endswith(tuple(valid_ext))
+                    crop_chk = ('channel' in f) and ('XP' in f)
+                    if exist_chk and ext_chk and crop_chk:
                         # print('Dropped file: "%s"' % f)
                         event.widget.insert('end', f)
                     else:

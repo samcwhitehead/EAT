@@ -1134,6 +1134,8 @@ def process_visual_expresso(DATA_PATH, DATA_FILENAME, PARAMS=trackingParams,
     HAMPEL_K = PARAMS['hampel_k']     # window for median filter, in units of frame number
     HAMPEL_SIGMA = PARAMS['hampel_sigma']     # window for median filter, in units of frame number
     VEL_THRESH = PARAMS['vel_thresh']           # (cm/s) min speed for the fly to be 'moving' 
+    X_LIM = PARAMS['x_lim']                 # limit to be imposed on X values 
+    Y_LIM = PARAMS['y_lim']                 # limit to be imposed on Y values 
     
     LABEL_FONTSIZE = PARAMS['label_fontsize']  # for any plots that come up in the script
     filt_order = 4
@@ -1176,9 +1178,13 @@ def process_visual_expresso(DATA_PATH, DATA_FILENAME, PARAMS=trackingParams,
     fs = 1.0/dt
     b_filt, a_filt = signal.butter(filt_order,filt_level/fs)
     
+    # find values outside of reasonable x, y range -> set them to nan
+    x_out_idx = np.logical_or((xcm_curr < X_LIM[0]), (xcm_curr > X_LIM[1]))
+    y_out_idx = np.logical_or((ycm_curr < Y_LIM[0]), (ycm_curr > Y_LIM[1]))
+    #xcm_curr[x_out_idx] = np.nan 
+    #ycm_curr[y_out_idx] = np.nan
     
     # interpolate through nan values with a spline
-    
     interp_idx = np.logical_or(np.isnan(xcm_curr), np.isnan(ycm_curr))
     xcm_interp = interpolate.interp1d(t[~interp_idx],xcm_curr[~interp_idx],
                          kind='linear', fill_value='extrapolate')
@@ -1524,7 +1530,7 @@ def save_vid_summary(VID_FILENAMES, CSV_FILENAME):
 
 def plot_body_cm(flyTrackData, plot_color=(1,0,0), SAVE_FLAG=False,
                  LABEL_FONTSIZE=trackingParams['label_fontsize'],
-                 x_lim=[-0.8, 0.8], y_lim=[-0.5, 5.0]):
+                 x_lim=trackingParams['x_lim'], y_lim=trackingParams['y_lim']):
     
     # load data from fly tracking structure
     t = flyTrackData['t']
@@ -1762,12 +1768,15 @@ def batch_plot_cum_dist(VID_FILENAMES, SAVE_FLAG = False,
 
 def batch_plot_heatmap(VID_FILENAMES, bin_size = 0.1, SAVE_FLAG = False,
                         LABEL_FONTSIZE=trackingParams['label_fontsize'], 
-                        t_lim=None):    
+                        x_lim = trackingParams['x_lim'],
+                        y_lim = trackingParams['y_lim'], 
+                        c_lim = trackingParams['c_lim'],
+                        interp_style = 'none', t_lim=None):    
     h5_filenames = [] 
     fig_heatmap, ax_heatmap = plt.subplots(1,1,figsize=(4,8))
     
-    Xedges = np.arange(-0.8, 0.8, bin_size)
-    Yedges = np.arange(-0.5, 5.0 ,bin_size)
+    Xedges = np.arange(x_lim[0], x_lim[1], bin_size)
+    Yedges = np.arange(y_lim[0], y_lim[1] ,bin_size)
     heatmap_sum = np.zeros((Yedges.size-1,Xedges.size-1))    
     heatmap_cc = 0 
     
@@ -1815,19 +1824,22 @@ def batch_plot_heatmap(VID_FILENAMES, bin_size = 0.1, SAVE_FLAG = False,
     heatmap_mean = heatmap_sum/heatmap_cc
     
     # plot results
-    
     cax = ax_heatmap.imshow(heatmap_mean,extent=[Xedges[0], Xedges[-1],
                                            Yedges[0], Yedges[-1]],
                                            cmap='inferno',
-                                           interpolation='gaussian',
+                                           interpolation=interp_style,
                                            origin='low')
-    ax_heatmap.xaxis.set_ticks([-0.5, 0.0, 0.5]) 
-    ax_heatmap.yaxis.set_ticks([0, 1, 2, 3, 4])                                       
+    if c_lim:
+        cax.set_clim(c_lim)
+    #ax_heatmap.xaxis.set_ticks([-0.5, 0.0, 0.5]) 
+    #ax_heatmap.yaxis.set_ticks([0, 1, 2, 3, 4, 5])   
+    ax_heatmap.locator_params(nbins=4, axis='x')  
+    ax_heatmap.locator_params(nbins=8, axis='y')                                  
     ax_heatmap.set_xlabel('X [cm]',fontsize=LABEL_FONTSIZE)
     ax_heatmap.set_ylabel('Y [cm]',fontsize=LABEL_FONTSIZE)
           
     cbar = fig_heatmap.colorbar(cax)
-    cbar.set_label('PDF')
+    cbar.set_label('Prob. Density Function')
     
     #plt.tight_layout()
     #plt.axis('equal')

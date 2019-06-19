@@ -62,7 +62,10 @@ trackingParams = {'fly_size_range' : [20, 100] ,
             'medfilt_window' : 7 ,
             'vel_thresh' : 0.05 , #0.05
             'hampel_k' : 11 , 
-            'hampel_sigma' : 3 }
+            'hampel_sigma' : 3 ,
+            'x_lim' : [-0.85, 0.85] ,
+            'y_lim' : [-1.0, 6.0] ,
+            'c_lim': None} # heatmap color limits, e.g. [0.0, 5.0]. If 'None', do auto
 
 initDirectories = ["H:\\v_expresso data\\Feeding_annotation_videos",
                    "F:\\Expresso GUI\\for_testing\\fewbigmealsevents", 
