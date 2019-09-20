@@ -189,8 +189,9 @@ def save_batch_xlsx(save_name, bouts_list,name_list,volumes_list,
     ws_events = wb.create_sheet("Events")
     
     # summary page
-    summary_heading = ["Filename", "XP", "Channel", "Number of Events", 
-                       "Total Volume [nL]", "Total Duration", "Latency" ]
+    summary_heading = ["Filename", "XP", "Channel", "Number of Meals", 
+                       "Total Volume (nL)", "Total Duration (s)",
+                        "Latency to Eat (s)" ]
     ws_summary.append(summary_heading)
     
     for ith, bouts_curr in enumerate(bouts_list):
@@ -206,7 +207,7 @@ def save_batch_xlsx(save_name, bouts_list,name_list,volumes_list,
     
     #events page
     events_heading = ["Filename", "XP", "Channel", "StartIdx", "EndIdx",  
-                      "DurationIdx", "Volume [nL]"]
+                      "DurationIdx", "Volume (nL)"]
     ws_events.append(events_heading)
     
     for ith, bouts_curr in enumerate(bouts_list):

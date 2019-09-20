@@ -14,6 +14,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib import cm 
 
+import re
 import h5py
 
 from load_hdf5_data import load_hdf5
@@ -597,6 +598,97 @@ def save_comb_time_series(data_filenames):
                 
             out_path.close()
 
+#------------------------------------------------------------------------------
+# function to save time series of combined data
+def save_comb_summary(entry_list, csv_filename):
+    # info for converting file types
+    data_suffix = '_COMBINED_DATA.hdf5'
+    
+    # variables to put in summary file 
+    column_headers = ['Filename', 'Bank', 'Channel',  'Number of Meals', 
+                       'Total Volume (nL)', 'Total Duration Eating (s)',
+                        'Latency to Eat (s)', 'Cumulative Dist. (cm)',
+                        'Average Speed (cm/s)', 'Fraction Time Moving']    
+    
+    # ------------------------------------------------
+    # initialize csv file to write to 
+    if sys.version_info[0] < 3:
+        out_path = open(csv_filename,mode='wb')
+    else:
+        out_path = open(csv_filename, 'w', newline='')
+    save_writer = csv.writer(out_path)  
+    
+    # write a row of column headers                    
+    save_writer.writerow(column_headers)         
+    
+    # -------------------------------------------------------
+    # loop through each data file and write a row to csv
+    for ent in entry_list:
+        filename_full = ent + data_suffix
+        if not os.path.exists(os.path.abspath(filename_full)):
+            # in case we don't have analysis for this file yet
+            print(ent + ' not yet analyzed--failed to save')
+        else:
+            # ------------------------------------------------------------
+            # load combined data file
+            filepath, filename = os.path.split(filename_full)
+            flyCombinedData = hdf5_to_flyCombinedData(filepath, filename)
+            filename_noExt, _ = os.path.splitext(filename)
+            
+            # get bank and channel info
+            xp_regex = "XP\d\d"
+            channel_regex = "channel_\d"
+            xp_name = re.findall(xp_regex,filename_noExt)[0]
+            channel_name = re.findall(channel_regex,filename_noExt)[0]
+            
+            # -------------------------------------------
+            # load in relevant bout data (feeding)
+            bouts = flyCombinedData['bouts']
+            #bouts = np.asarray(bouts)
+            volumes = flyCombinedData['volumes']
+            channel_t = flyCombinedData['channel_t']
+            
+            num_meals = float(bouts.shape[1])
+            total_volume = np.sum([float(vol) for vol in volumes])
+            
+            if (num_meals < 1):
+                latency = np.inf
+                duration_eating = 0.0 
+            else:
+                bout_start_t = [channel_t[bouts[0,ith]] for ith in range(bouts.shape[1])]
+                bout_end_t = [channel_t[bouts[1,ith]] for ith in range(bouts.shape[1])]
+                latency = bout_start_t[0]
+                duration_eating = np.sum(np.asarray(bout_end_t) - np.asarray(bout_start_t))
+            
+            #---------------------------------------------------------
+            # load in relevant kinematics data (tracking)
+            
+            cum_dist = flyCombinedData['cum_dist']
+            vel_mag = flyCombinedData['vel_mag']
+            moving_ind = flyCombinedData['moving_ind']
+            
+            avg_speed = np.nanmean(vel_mag[moving_ind])
+            cum_dist_max = cum_dist[-1]
+            frac_moving = float(np.sum(moving_ind)) / float(moving_ind.size)
+            
+            
+            #---------------------------------------------------------
+            # combine data into one matrix 
+#            row_mat = np.vstack((filename_noExt, xp_name, channel_name, 
+#                                 num_meals, total_volume, duration_eating, 
+#                                 latency, cum_dist_max, avg_speed, frac_moving))
+#            row_mat = np.transpose(row_mat)
+            row_list = [filename_noExt, xp_name, channel_name, 
+                                 num_meals, total_volume, duration_eating, 
+                                 latency, cum_dist_max, avg_speed, frac_moving]
+
+            #print(row_mat)
+            save_writer.writerow(row_list)
+    
+    # close csv file                
+    out_path.close()
+                
+            
                 
          
             

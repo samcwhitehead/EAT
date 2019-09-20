@@ -7,8 +7,13 @@ Created on Tue May 22 15:33:24 2018
 A handful of useful functions to be used throughout expresso analysis code
 """
 #------------------------------------------------------------------------------
+import sys
 import numpy as np
 from matplotlib import pyplot as plt
+if sys.version_info[0] < 3:
+    from Tkinter import *
+else:
+    from tkinter import *
 #-----------------------------------------------------------------------------
 # tool for pulling out indices of an array with elements above thresh value
 def idx_by_thresh(signal,thresh = 0.1):
@@ -185,3 +190,22 @@ def remove_nubs(y,min_length=50):
                     z[nidx[0]-1] = np.nan
             nans[nidx] = np.nan
     return z
+    
+# -----------------------------------------------------------------------------
+def get_curr_screen_geometry():
+    """
+    Workaround to get the size of the current screen in a multi-screen setup.
+
+    Returns:
+        geometry (str): The standard Tk geometry string.
+            [width]x[height]+[left]+[top]
+            
+    From stackoverflow.com/questions/3129322/how-do-i-get-monitor-resolution-in-python/56913005#56913005
+    """
+    root = Tk()
+    root.update_idletasks()
+    root.attributes('-fullscreen', True)
+    root.state('iconic')
+    geometry = root.winfo_geometry()
+    root.destroy()
+    return geometry      

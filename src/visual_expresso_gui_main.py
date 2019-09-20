@@ -36,7 +36,7 @@ from batch_bout_analysis_func import batch_bout_analysis, save_batch_xlsx
 from v_expresso_gui_params import (initDirectories, guiParams, trackingParams)
 from bout_and_vid_analysis import (channel2basic, vid2basic, basic2channel,
                                    basic2vid, flyCombinedData_to_hdf5,
-                                   save_comb_time_series, hdf5_to_flyCombinedData,
+                                   save_comb_time_series, save_comb_summary,
                                    bout_analysis_wTracking, merge_v_expresso_data,
                                    plot_bout_aligned_var)
 from v_expresso_image_lib import (visual_expresso_main,
@@ -1269,22 +1269,22 @@ class BatchCombinedFrame(Frame):
         self.analyze_button.grid(column=col + 3, row=row, padx=10, pady=2,
                                  sticky=S)
 
-        self.save_button_ch = Button(self.entryframe, text='Save Channel Summary')
+        self.save_button_comb = Button(self.entryframe, text='Save Combined Summary')
         # self.save_button['state'] = 'disabled'
-        self.save_button_ch['command'] = self.save_batch_channel
-        self.save_button_ch.grid(column=col + 3, row=row + 1, padx=10, pady=2,
+        self.save_button_comb['command'] = self.save_batch_comb
+        self.save_button_comb.grid(column=col + 3, row=row + 1, padx=10, pady=2,
                                  sticky=S)
 
-        self.save_button_vid = Button(self.entryframe, text='Save Video Summary')
-        # self.save_button['state'] = 'disabled'
-        self.save_button_vid['command'] = self.save_batch_vid
-        self.save_button_vid.grid(column=col + 3, row=row + 2, padx=10, pady=2,
-                                  sticky=S)
+#        self.save_button_vid = Button(self.entryframe, text='Save Video Summary')
+#        # self.save_button['state'] = 'disabled'
+#        self.save_button_vid['command'] = self.save_batch_vid
+#        self.save_button_vid.grid(column=col + 3, row=row + 2, padx=10, pady=2,
+#                                  sticky=S)
 
         self.save_ts_button = Button(self.entryframe, text='Save Time Series')
         # self.save_button['state'] = 'disabled'
         self.save_ts_button['command'] = lambda: self.save_time_series(root)
-        self.save_ts_button.grid(column=col + 3, row=row + 3, padx=10, pady=2,
+        self.save_ts_button.grid(column=col + 3, row=row + 2, padx=10, pady=2,
                                  sticky=S)
 
         # button to combine data types                     
@@ -1359,8 +1359,7 @@ class BatchCombinedFrame(Frame):
     def clear_batch(self):
         self.batchlist.delete(0, END)
 
-        # ---------------------------------------------------------
-
+    # ---------------------------------------------------------
     # perform analysis with combined video and channel data
     # ---------------------------------------------------------
     def analyze_batch(self, root):
@@ -1398,45 +1397,45 @@ class BatchCombinedFrame(Frame):
 
         self.comb_file_list = batch_list
 
-    # -----------------------------------------------------
-    # save batch channel summary
-    # -----------------------------------------------------
-    def save_batch_channel(self):
-        batch_list = self.batchlist.get(0, END)
-        if len(batch_list) < 1:
-            tkMessageBox.showinfo(title='Error',
-                                  message='Add data to batch box for batch analysis')
-            return
-        else:
-
-            # get time boundary/binning
-            try:
-                tmin = int(self.tmin_entry.get())
-                tmax = int(self.tmax_entry.get())
-                tbin = int(self.tbin_entry.get())
-            except:
-                tkMessageBox.showinfo(title='Error',
-                                      message='Set time range and bin size')
-                return
-
-                # run and save feeding analysis (a little redundant)
-            batch_list_ch = [basic2channel(ent) for ent in batch_list]
-
-            (bouts_list, name_list, volumes_list, consumption_per_fly,
-             duration_per_fly, latency_per_fly) = \
-                batch_bout_analysis(batch_list_ch, tmin, tmax, tbin, plotFlag=False,
-                                    combAnalysisFlag=True)
-
-            savename_ch = tkFileDialog.asksaveasfilename(initialdir=sys.path[0],
-                                                         defaultextension=".xlsx",
-                                                         title='Select save filename for CHANNEL summary')
-            save_batch_xlsx(savename_ch, bouts_list, name_list, volumes_list,
-                            consumption_per_fly, duration_per_fly, latency_per_fly)
+#    # -----------------------------------------------------
+#    # save batch channel summary
+#    # -----------------------------------------------------
+#    def save_batch_channel(self):
+#        batch_list = self.batchlist.get(0, END)
+#        if len(batch_list) < 1:
+#            tkMessageBox.showinfo(title='Error',
+#                                  message='Add data to batch box for batch analysis')
+#            return
+#        else:
+#
+#            # get time boundary/binning
+#            try:
+#                tmin = int(self.tmin_entry.get())
+#                tmax = int(self.tmax_entry.get())
+#                tbin = int(self.tbin_entry.get())
+#            except:
+#                tkMessageBox.showinfo(title='Error',
+#                                      message='Set time range and bin size')
+#                return
+#
+#                # run and save feeding analysis (a little redundant)
+#            batch_list_ch = [basic2channel(ent) for ent in batch_list]
+#
+#            (bouts_list, name_list, volumes_list, consumption_per_fly,
+#             duration_per_fly, latency_per_fly) = \
+#                batch_bout_analysis(batch_list_ch, tmin, tmax, tbin, plotFlag=False,
+#                                    combAnalysisFlag=True)
+#
+#            savename_ch = tkFileDialog.asksaveasfilename(initialdir=sys.path[0],
+#                                                         defaultextension=".xlsx",
+#                                                         title='Select save filename for CHANNEL summary')
+#            save_batch_xlsx(savename_ch, bouts_list, name_list, volumes_list,
+#                            consumption_per_fly, duration_per_fly, latency_per_fly)
 
     # -----------------------------------------------------
     # save batch video summary
     # -----------------------------------------------------
-    def save_batch_vid(self):
+    def save_batch_comb(self):
         batch_list = self.batchlist.get(0, END)
         if len(batch_list) < 1:
             tkMessageBox.showinfo(title='Error',
@@ -1444,11 +1443,11 @@ class BatchCombinedFrame(Frame):
             return
         else:
             # save video summary
-            csv_filename_vid = tkFileDialog.asksaveasfilename(initialdir=sys.path[0],
+            csv_filename = tkFileDialog.asksaveasfilename(initialdir=sys.path[0],
                                                               defaultextension=".csv",
-                                                              title='Select save filename for VIDEO summary')
-            batch_list_vid = [basic2vid(ent) for ent in batch_list]
-            save_vid_summary(batch_list_vid, csv_filename_vid)
+                                                              title='Select save filename for COMBINED summary')
+            #batch_list_vid = [basic2vid(ent) for ent in batch_list]
+            save_comb_summary(batch_list, csv_filename)
 
     # ---------------------------------------------------------------------
     # save channel and video data as one csv file (at each time point)

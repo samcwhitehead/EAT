@@ -1123,72 +1123,33 @@ def visual_expresso_main(DATA_PATH, DATA_FILENAME, DEBUG_BG_FLAG=False,
         flyTrackData['body_angle'] = body_angle
                 
     return flyTrackData
-    
+
 #------------------------------------------------------------------------------
-def process_visual_expresso(DATA_PATH, DATA_FILENAME, PARAMS=trackingParams, 
-                            SAVE_DATA_FLAG = False, DEBUG_FLAG = False):
-    
-    SAVE_PATH = DATA_PATH
-    SMOOTHING_FACTOR = PARAMS['smoothing_factor']    # degree of smoothing for interpolant spline [0, Inf)
-    MEDFILT_WINDOW = PARAMS['medfilt_window']     # window for median filter, in units of frame number
-    HAMPEL_K = PARAMS['hampel_k']     # window for median filter, in units of frame number
-    HAMPEL_SIGMA = PARAMS['hampel_sigma']     # window for median filter, in units of frame number
-    VEL_THRESH = PARAMS['vel_thresh']           # (cm/s) min speed for the fly to be 'moving' 
-    X_LIM = PARAMS['x_lim']                 # limit to be imposed on X values 
-    Y_LIM = PARAMS['y_lim']                 # limit to be imposed on Y values 
-    
-    LABEL_FONTSIZE = PARAMS['label_fontsize']  # for any plots that come up in the script
-    filt_order = 4
-    filt_level = 2.0
-    #------------------------------------------------------------------------------
-    
-    #=======================================
-    # load tracking data 
-    #=======================================
-    
-    filename = os.path.join(DATA_PATH, DATA_FILENAME)
-    
-    data_prefix = os.path.splitext(DATA_FILENAME)[0]
-    xp_name = data_prefix.split('_')[-3]
-    channel_name = 'channel_' + data_prefix.split('_')[-1]   
-    
-    with h5py.File(filename,'r') as f:
-        # kinematics for processing        
-        t = f['Time']['t'].value
-        PIX2CM = f['Params']['pix2cm'].value      
-        xcm_curr = f['BodyCM']['xcm'].value 
-        ycm_curr = f['BodyCM']['ycm'].value 
-                
-        # various params from original tracking to be resaved
-        ROI = f['ROI']['roi'].value 
-        BG =  f['BG']['bg'].value 
-        cap_tip =  f['CAP_TIP']['cap_tip'].value 
-        cap_tip_orientation = f['CAP_TIP']['cap_tip_orientation'].value 
-            
-        try:
-            body_angle = f['BodyAngle']['body_angle'].value 
-        except KeyError:
-            body_angle = None
-            
-    
-    #=======================================
-    # Interpolate, filter, and smooth
-    #=======================================
+# Interpolate, filter, and smooth fly trajectories
+
+def filter_fly_trajectory(xcm, ycm, t, PARAMS=trackingParams, filt_order=4,
+                          filt_level=2.0):
+
+    # generate low-pass filter
     dt = np.mean(np.diff(t))
     fs = 1.0/dt
     b_filt, a_filt = signal.butter(filt_order,filt_level/fs)
     
+    # get bounds on X and Y coordinates
+    X_LIM = PARAMS['x_lim']                 # limit to be imposed on X values 
+    Y_LIM = PARAMS['y_lim']                 # limit to be imposed on Y values 
+    
     # find values outside of reasonable x, y range -> set them to nan
-    x_out_idx = np.logical_or((xcm_curr < X_LIM[0]), (xcm_curr > X_LIM[1]))
-    y_out_idx = np.logical_or((ycm_curr < Y_LIM[0]), (ycm_curr > Y_LIM[1]))
-    #xcm_curr[x_out_idx] = np.nan 
-    #ycm_curr[y_out_idx] = np.nan
+    x_out_idx = np.logical_or((xcm < X_LIM[0]), (xcm > X_LIM[1]))
+    y_out_idx = np.logical_or((ycm < Y_LIM[0]), (ycm > Y_LIM[1]))
+    xcm[x_out_idx] = np.nan 
+    ycm[y_out_idx] = np.nan
     
     # interpolate through nan values with a spline
-    interp_idx = np.logical_or(np.isnan(xcm_curr), np.isnan(ycm_curr))
-    xcm_interp = interpolate.interp1d(t[~interp_idx],xcm_curr[~interp_idx],
+    interp_idx = np.logical_or(np.isnan(xcm), np.isnan(ycm))
+    xcm_interp = interpolate.interp1d(t[~interp_idx],xcm[~interp_idx],
                          kind='linear', fill_value='extrapolate')
-    ycm_interp = interpolate.interp1d(t[~interp_idx],ycm_curr[~interp_idx],
+    ycm_interp = interpolate.interp1d(t[~interp_idx],ycm[~interp_idx],
                          kind='linear', fill_value='extrapolate')
                          
     #xcm_interp = interpolate_tracks(xcm_curr)
@@ -1222,6 +1183,52 @@ def process_visual_expresso(DATA_PATH, DATA_FILENAME, PARAMS=trackingParams,
     # low pass filter
     xcm_filt = signal.filtfilt(b_filt,a_filt,xcm_interp(t))
     ycm_filt = signal.filtfilt(b_filt,a_filt,ycm_interp(t))
+    
+    return (xcm_filt, ycm_filt)
+#------------------------------------------------------------------------------
+def process_visual_expresso(DATA_PATH, DATA_FILENAME, PARAMS=trackingParams, 
+                            SAVE_DATA_FLAG = False, DEBUG_FLAG = False):
+    
+    SAVE_PATH = DATA_PATH
+    SMOOTHING_FACTOR = PARAMS['smoothing_factor']    # degree of smoothing for interpolant spline [0, Inf)
+    MEDFILT_WINDOW = PARAMS['medfilt_window']     # window for median filter, in units of frame number
+    HAMPEL_K = PARAMS['hampel_k']     # window for median filter, in units of frame number
+    HAMPEL_SIGMA = PARAMS['hampel_sigma']     # window for median filter, in units of frame number
+    VEL_THRESH = PARAMS['vel_thresh']           # (cm/s) min speed for the fly to be 'moving' 
+    
+    LABEL_FONTSIZE = PARAMS['label_fontsize']  # for any plots that come up in the script
+    #------------------------------------------------------------------------------
+    
+    #=======================================
+    # load tracking data 
+    #=======================================
+    
+    filename = os.path.join(DATA_PATH, DATA_FILENAME)
+    
+    data_prefix = os.path.splitext(DATA_FILENAME)[0]
+    xp_name = data_prefix.split('_')[-3]
+    channel_name = 'channel_' + data_prefix.split('_')[-1]   
+    
+    with h5py.File(filename,'r') as f:
+        # kinematics for processing        
+        t = f['Time']['t'].value
+        PIX2CM = f['Params']['pix2cm'].value      
+        xcm_curr = f['BodyCM']['xcm'].value 
+        ycm_curr = f['BodyCM']['ycm'].value 
+                
+        # various params from original tracking to be resaved
+        ROI = f['ROI']['roi'].value 
+        BG =  f['BG']['bg'].value 
+        cap_tip =  f['CAP_TIP']['cap_tip'].value 
+        cap_tip_orientation = f['CAP_TIP']['cap_tip_orientation'].value 
+            
+        try:
+            body_angle = f['BodyAngle']['body_angle'].value 
+        except KeyError:
+            body_angle = None
+
+    dt = np.mean(np.diff(t))
+    xcm_filt, ycm_filt = filter_fly_trajectory(xcm_curr, ycm_curr, t)
     
     # fit smoothing spline to calculate derivative
     sp_xcm = interpolate.UnivariateSpline(t,xcm_filt,s=SMOOTHING_FACTOR)
@@ -1559,14 +1566,16 @@ def plot_body_cm(flyTrackData, plot_color=(1,0,0), SAVE_FLAG=False,
     plt.tight_layout()
     
     # Y vs X
-    fig_spatial, ax = plt.subplots(figsize=(3.6,8.0))
+    fig_spatial, ax = plt.subplots()
     ax.plot(xcm_smooth,ycm_smooth,color=plot_color)
     ax.set_xlabel('X [cm]',fontsize=LABEL_FONTSIZE)
     ax.set_ylabel('Y [cm]',fontsize=LABEL_FONTSIZE)
     ax.set_title( DATA_FILENAME)
+    
+    ax.axis('scaled')
     ax.set_xlim(x_lim)
     ax.set_ylim(y_lim)
-    plt.axis('equal')
+    
     
     if SAVE_FLAG:
         SAVE_PATH = flyTrackData['filepath']
@@ -1648,14 +1657,15 @@ def plot_body_angle(flyTrackData, plot_color=(1,0,0), SAVE_FLAG=False,
 #------------------------------------------------------------------------------
 
 def plot_moving_v_still(flyTrackData, plot_color=(1,0,0), SAVE_FLAG=False,
-                 LABEL_FONTSIZE=trackingParams['label_fontsize']):
+                        trackingParams=trackingParams, 
+                        LABEL_FONTSIZE=trackingParams['label_fontsize']):
         
     # load data from fly tracking structure
     t = flyTrackData['t']
     vel_mag = flyTrackData['vel_mag']
     moving_ind = flyTrackData['moving_ind']
     DATA_FILENAME = flyTrackData['filename']
-    trackingParams = flyTrackData['trackingParams']
+    #trackingParams = flyTrackData['trackingParams']
     VEL_THRESH = trackingParams['vel_thresh']
     
     # velocity magnitude separated by moving vs still
@@ -1771,7 +1781,7 @@ def batch_plot_heatmap(VID_FILENAMES, bin_size = 0.1, SAVE_FLAG = False,
                         x_lim = trackingParams['x_lim'],
                         y_lim = trackingParams['y_lim'], 
                         c_lim = trackingParams['c_lim'],
-                        interp_style = 'none', t_lim=None):    
+                        interp_style = 'gaussian', t_lim=None):    
     h5_filenames = [] 
     fig_heatmap, ax_heatmap = plt.subplots(1,1,figsize=(4,8))
     
