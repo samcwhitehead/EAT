@@ -94,7 +94,7 @@ class DataLoader(Frame):
         
         # -------------------------------------------------------------
         # define remove current data selection button
-        self.rm_button = Button(self.btnframe, text='Clear Data',
+        self.rm_button = Button(self.btnframe, text='Remove Data',
                                   command= lambda: self.rm_data(parent),
                                   state=DISABLED)
                                    
@@ -183,7 +183,7 @@ class DataLoader(Frame):
         for item in selected:
             self.filelist.delete(item)
         
-        if (len(self.filelist) < 1): 
+        if (len(self.filelist.get(0,END)) < 1): 
             parent.dataFlag = False 
     # -------------------------------------------------------------------------    
     def clear_data(self,parent):
