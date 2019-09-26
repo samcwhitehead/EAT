@@ -249,7 +249,7 @@ class reviewTool:
         self.ax2.set_ylabel('Volume (nL)')
         self.canvas = matplotlib.backends.backend_tkagg.FigureCanvasTkAgg(Fig, 
                                                             master=self.master)
-        self.canvas.show()
+        self.canvas.draw()
         self.canvas.get_tk_widget().grid(column=2, row=0, padx=10, pady=0, sticky=N)
         self.canvas._tkcanvas.grid(column=2, row=0,padx=10, pady=0, sticky=N)
 
@@ -335,18 +335,21 @@ class reviewTool:
             
             # draw points
             self.canvas.draw()
-            self.canvas.show()
+            
             
             # also load x,y track coordinates
             pix2cm = self.flyData['PIX2CM']
             cap_tip = self.flyData['cap_tip']
-            cap_tip_orient = self.flyData['cap_tip_orientation']
+            if (sys.version_info[0] < 3):
+                cap_tip_orient = self.flyData['cap_tip_orientation']
+            else:
+                encoding = 'utf-8'
+                cap_tip_orient = self.flyData['cap_tip_orientation'].decode(encoding)
             xcm_trans = self.flyData['xcm_smooth'] 
             ycm_trans = self.flyData['ycm_smooth'] 
             self.xcm, self.ycm = invert_coord_transform(xcm_trans, ycm_trans, 
                                                         pix2cm, cap_tip, 
                                                         cap_tip_orient)
-            
             # update display to first frame
             self.frame_slider.slider.set(0)
         else:

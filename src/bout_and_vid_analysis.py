@@ -375,8 +375,9 @@ def hdf5_to_flyCombinedData(filepath, filename):
         # params
         #--------------------------
         flyCombinedData['PIX2CM'] = f['Params']['pix2cm'].value
-        flyCombinedData['trackingParams'] = ast.literal_eval(f['Params']['trackingParams'].value)
-        flyCombinedData['boutParams'] = ast.literal_eval(f['Params']['boutParams'].value)
+        if (sys.version_info[0] < 3):
+            flyCombinedData['trackingParams'] = ast.literal_eval(f['Params']['trackingParams'].value)
+            flyCombinedData['boutParams'] = ast.literal_eval(f['Params']['boutParams'].value)
         
         #--------------------------
         # Time
@@ -392,7 +393,7 @@ def hdf5_to_flyCombinedData(filepath, filename):
         #--------------------------
         # Trajectory info
         #--------------------------
-        flyCombinedData['xcm'] = f['BodyCM']['xcm'].value 
+        flyCombinedData['xcm'] = f['BodyCM']['xcm'].value
         flyCombinedData['ycm'] = f['BodyCM']['ycm'].value 
         flyCombinedData['xcm_smooth'] = f['BodyCM']['xcm_smooth'].value 
         flyCombinedData['ycm_smooth'] = f['BodyCM']['ycm_smooth'].value 

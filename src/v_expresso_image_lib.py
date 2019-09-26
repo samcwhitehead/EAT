@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 import ast 
 
 from statsmodels import robust
-import progressbar
+#import progressbar
 
 from v_expresso_utils import interp_nans,hampel,interpolate_tracks,remove_nubs
 from v_expresso_gui_params import trackingParams
