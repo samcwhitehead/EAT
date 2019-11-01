@@ -45,7 +45,7 @@ else:
     from tkinter.ttk import *
     from tkinter import filedialog as tkFileDialog
     from tkinter import messagebox as tkMessageBox
-    from tkinter import simplediaglog as tkSimpleDialog
+    from tkinter import simpledialog as tkSimpleDialog
 
 #import matplotlib.pyplot as plt
 #from matplotlib.widgets import Slider, MultiCursor
