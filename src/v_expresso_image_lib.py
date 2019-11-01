@@ -1781,7 +1781,8 @@ def batch_plot_heatmap(VID_FILENAMES, bin_size = 0.1, SAVE_FLAG = False,
                         x_lim = trackingParams['x_lim'],
                         y_lim = trackingParams['y_lim'], 
                         c_lim = trackingParams['c_lim'],
-                        interp_style = 'gaussian', t_lim=None):    
+                        interp_style = 'none', t_lim=None):    
+                            #interp_style = 'gaussian'
     h5_filenames = [] 
     fig_heatmap, ax_heatmap = plt.subplots(1,1,figsize=(4,8))
     
@@ -1823,15 +1824,18 @@ def batch_plot_heatmap(VID_FILENAMES, bin_size = 0.1, SAVE_FLAG = False,
                     ycm = ycm[t_lim_idx]
                 heatmap_curr, _, _ = np.histogram2d(xcm, ycm, [Xedges,Yedges],
                                                     normed=True)
-            
-                heatmap_sum += heatmap_curr.T
-                heatmap_cc += 1
+                
+                if np.all(~np.isnan(heatmap_curr.T)):
+                    heatmap_sum += heatmap_curr.T
+                    heatmap_cc += 1
             except KeyError:
                 print('Could not create CM position histogram')
                 continue
             
-        
-    heatmap_mean = heatmap_sum/heatmap_cc
+    if (heatmap_cc > 0):    
+        heatmap_mean = heatmap_sum/heatmap_cc
+    else:
+        heatmap_mean = heatmap_sum
     
     # plot results
     cax = ax_heatmap.imshow(heatmap_mean,extent=[Xedges[0], Xedges[-1],
@@ -1857,6 +1861,7 @@ def batch_plot_heatmap(VID_FILENAMES, bin_size = 0.1, SAVE_FLAG = False,
     
     if SAVE_FLAG:
         print('under construction')
+    
 #------------------------------------------------------------------------------
 # function to undo the transformation that the code does to take pixel 
 #  coordinates and turn them into tip-centered centimeter coordinates

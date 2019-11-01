@@ -1443,11 +1443,11 @@ class BatchCombinedFrame(Frame):
             return
         else:
             # save video summary
-            csv_filename = tkFileDialog.asksaveasfilename(initialdir=sys.path[0],
-                                                              defaultextension=".csv",
+            xlsx_filename = tkFileDialog.asksaveasfilename(initialdir=sys.path[0],
+                                                              defaultextension=".xlsx",
                                                               title='Select save filename for COMBINED summary')
             #batch_list_vid = [basic2vid(ent) for ent in batch_list]
-            save_comb_summary(batch_list, csv_filename)
+            save_comb_summary(batch_list, xlsx_filename)
 
     # ---------------------------------------------------------------------
     # save channel and video data as one csv file (at each time point)

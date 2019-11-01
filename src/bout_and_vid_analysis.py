@@ -31,6 +31,7 @@ from v_expresso_image_lib import (visual_expresso_main,
 #from PIL import ImageTk, Image
 import ast 
 import csv
+from openpyxl import Workbook
 #------------------------------------------------------------------------------
 #------------------------------------------------------------------------------
 # function to convert channel entries to basic filepath string for comparison
@@ -448,7 +449,31 @@ def interp_channel_time(flyCombinedData):
     dset_smooth_cam = np.interp(cam_t, channel_t, dset_smooth)
     
     return dset_cam, dset_smooth_cam, bouts_cam
-    
+
+#------------------------------------------------------------------------------
+# function to calculate dwell time after each meal
+def get_dwell_time(bouts, channel_t, dist_mag, vid_t,
+                   fz_rad=analysisParams['food_zone_rad']):
+    N_meals = bouts.shape[1]
+    dwell_times = np.full((N_meals, 1), np.nan)
+    censoring = np.full((N_meals, 1), 0)
+    for meal_num in range(N_meals):
+        # find ending of current meal
+        meal_end_t = channel_t[bouts[1,meal_num]]
+        
+        # find first time after meal end that fly moves away from cap tip
+        post_meal_idx = np.where((vid_t > meal_end_t) & (dist_mag > fz_rad))[0]
+        
+        if (post_meal_idx.size == 0):
+            dwell_times[meal_num] = np.max(vid_t) - meal_end_t
+            censoring[meal_num] = 1 
+        else:
+            leave_idx = post_meal_idx[0]
+            dwell_times[meal_num] = vid_t[leave_idx] - meal_end_t 
+            censoring[meal_num] = 0
+            
+    return (dwell_times, censoring)
+
 #------------------------------------------------------------------------------
 # function to plot feeding-bout-end aligned data
 def plot_bout_aligned_var(basic_entries, var='vel_mag', window=300, 
@@ -601,29 +626,41 @@ def save_comb_time_series(data_filenames):
 
 #------------------------------------------------------------------------------
 # function to save time series of combined data
-def save_comb_summary(entry_list, csv_filename):
+def save_comb_summary(entry_list, xlsx_filename, 
+                      fz_rad=analysisParams['food_zone_rad']):
+    print('Saving to {} ...'.format(xlsx_filename))         
     # info for converting file types
     data_suffix = '_COMBINED_DATA.hdf5'
     
-    # variables to put in summary file 
-    column_headers = ['Filename', 'Bank', 'Channel',  'Number of Meals', 
+    # variables to put in summary page
+    summary_heading = ['Filename', 'Bank', 'Channel',  'Number of Meals', 
                        'Total Volume (nL)', 'Total Duration Eating (s)',
                         'Latency to Eat (s)', 'Cumulative Dist. (cm)',
-                        'Average Speed (cm/s)', 'Fraction Time Moving']    
+                        'Average Speed (cm/s)', 'Fraction Time Moving', 
+                        'Pre Meal Dist. (cm)', 'Food Zone Frac. (pre meal)',
+                        'Food Zone Frac. (post meal)']    
     
-    # ------------------------------------------------
-    # initialize csv file to write to 
-    if sys.version_info[0] < 3:
-        out_path = open(csv_filename,mode='wb')
-    else:
-        out_path = open(csv_filename, 'w', newline='')
-    save_writer = csv.writer(out_path)  
+    # variables to put in events page
+    events_heading = ['Filename', 'Bank', 'Channel', 'Meal Number', 
+                      'Start Time (s)', 'End Time (s)', 'Duration (s)', 
+                      'Volume (nL)', 'Dwell Time (s)', 
+                      'Dwell Time Censoring (bool)']
     
-    # write a row of column headers                    
-    save_writer.writerow(column_headers)         
+    # ---------------------------------
+    # INITIALIZE WORKBOOK
+    # ---------------------------------
+    wb = Workbook()    
     
+    ws_summary = wb.active
+    ws_summary.title = "Summary"
+    ws_events = wb.create_sheet("Events")
+    
+    # add column headers to pages
+    ws_summary.append(summary_heading)
+    ws_events.append(events_heading)
     # -------------------------------------------------------
-    # loop through each data file and write a row to csv
+    # LOOP THROUGH DATA AND WRITE TO XLSX FILE
+    # -------------------------------------------------------
     for ent in entry_list:
         filename_full = ent + data_suffix
         if not os.path.exists(os.path.abspath(filename_full)):
@@ -653,8 +690,11 @@ def save_comb_summary(entry_list, csv_filename):
             total_volume = np.sum([float(vol) for vol in volumes])
             
             if (num_meals < 1):
-                latency = np.inf
+                latency = -1.0
                 duration_eating = 0.0 
+                bout_start_t = np.nan
+                bout_end_t = np.nan
+                
             else:
                 bout_start_t = [channel_t[bouts[0,ith]] for ith in range(bouts.shape[1])]
                 bout_end_t = [channel_t[bouts[1,ith]] for ith in range(bouts.shape[1])]
@@ -667,28 +707,64 @@ def save_comb_summary(entry_list, csv_filename):
             cum_dist = flyCombinedData['cum_dist']
             vel_mag = flyCombinedData['vel_mag']
             moving_ind = flyCombinedData['moving_ind']
+            vid_t = flyCombinedData['t']
+            dist_mag = np.sqrt(flyCombinedData['xcm_smooth']**2 + 
+                        flyCombinedData['ycm_smooth']**2)
             
             avg_speed = np.nanmean(vel_mag[moving_ind])
             cum_dist_max = cum_dist[-1]
             frac_moving = float(np.sum(moving_ind)) / float(moving_ind.size)
             
+            # ---------------------------------------------------------------
+            # also get leave times, fraction of time spent in food zone 
+            # (before and after first meal), and distance walked prior to first
+            # meal
+            dwell_times, censoring = get_dwell_time(bouts, channel_t, 
+                                                    dist_mag, vid_t, 
+                                                    fz_rad=fz_rad)
             
+            if (num_meals < 1):
+                pre_meal_pathlength = cum_dist_max 
+                fz_idx = (dist_mag <= fz_rad)
+                fz_frac_pre = float(np.sum(fz_idx))/float(dist_mag.size )
+                fz_frac_post = 0.0 
+            else:
+                first_meal_ind = bouts[0,0]
+                pre_meal_pathlength = cum_dist[first_meal_ind-1]
+                fz_idx = (dist_mag <= fz_rad)
+                pre_ind = (vid_t < bout_start_t[0])
+                post_ind = (vid_t >= bout_start_t[0])
+                fz_frac_pre = float(np.sum(fz_idx & pre_ind))/float(dist_mag.size)
+                fz_frac_post = float(np.sum(fz_idx & post_ind))/float(dist_mag.size)
             #---------------------------------------------------------
-            # combine data into one matrix 
-#            row_mat = np.vstack((filename_noExt, xp_name, channel_name, 
-#                                 num_meals, total_volume, duration_eating, 
-#                                 latency, cum_dist_max, avg_speed, frac_moving))
-#            row_mat = np.transpose(row_mat)
+            # WRITE DATA TO XLSX FILE
+            #---------------------------------------------------------
+            # summary info (one line per fly)
             row_list = [filename_noExt, xp_name, channel_name, 
                                  num_meals, total_volume, duration_eating, 
-                                 latency, cum_dist_max, avg_speed, frac_moving]
+                                 latency, cum_dist_max, avg_speed, frac_moving,
+                                 pre_meal_pathlength,fz_frac_pre,fz_frac_post]
 
-            #print(row_mat)
-            save_writer.writerow(row_list)
-    
-    # close csv file                
-    out_path.close()
+            ws_summary.append(row_list)
+            
+            # event info (multiple lines per fly)
+            for jth in range(bouts.shape[1]):
+                bout_start_curr = bout_start_t[jth]
+                bout_end_curr = bout_end_t[jth]
+                volume_curr = float(volumes[jth])
+                duration_curr = bout_end_curr - bout_start_curr 
                 
+                row_curr = [filename_noExt, xp_name, channel_name, jth+1, 
+                            bout_start_curr, bout_end_curr,duration_curr, 
+                            volume_curr, float(dwell_times[jth]), 
+                            float(censoring[jth])]
+                ws_events.append(row_curr) 
+    
+    # -------------------------------------
+    # SAVE XLSX FILE
+    # -------------------------------------           
+    wb.save(xlsx_filename)
+    print('Completed saving {}'.format(xlsx_filename))           
             
                 
          

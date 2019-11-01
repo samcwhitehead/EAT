@@ -190,7 +190,7 @@ def save_batch_xlsx(save_name, bouts_list,name_list,volumes_list,
     
     # summary page
     summary_heading = ["Filename", "XP", "Channel", "Number of Meals", 
-                       "Total Volume (nL)", "Total Duration (s)",
+                       "Total Volume (nL)", "Total Duration Eating (s)",
                         "Latency to Eat (s)" ]
     ws_summary.append(summary_heading)
     

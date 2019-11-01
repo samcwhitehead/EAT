@@ -21,11 +21,14 @@ Created on Wed Sep 18 10:15:58 2019
 import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 import os
 import sys
 #import h5py
 import numpy as np
 import csv
+#from statsmodels.stats.multicomp import (MultiComparison, pairwise_tukeyhsd)
+import scikit_posthocs as sp
 from openpyxl import load_workbook
 from scipy.stats import mstats
 
@@ -36,11 +39,13 @@ if sys.version_info[0] < 3:
     import tkFileDialog
     from ttk import *
     import tkMessageBox
+    import tkSimpleDialog
 else:
     from tkinter import *
     from tkinter.ttk import *
     from tkinter import filedialog as tkFileDialog
     from tkinter import messagebox as tkMessageBox
+    from tkinter import simplediaglog as tkSimpleDialog
 
 #import matplotlib.pyplot as plt
 #from matplotlib.widgets import Slider, MultiCursor
@@ -49,10 +54,27 @@ from v_expresso_gui_params import (initDirectories, guiParams)
 from v_expresso_utils import get_curr_screen_geometry
 # allows drag and drop functionality. if you don't want this, or are having 
 #  trouble with the TkDnD installation, set to false.
-TKDND_FLAG = False
+TKDND_FLAG = True
 if TKDND_FLAG:
     from TkinterDnD2 import *
 
+# ===================================================================
+"""
+
+General utility functions
+
+"""
+def convert_data_for_stats(data_list, data_labels):
+    # initialize output array
+    data_array = np.array([])
+    label_list = []
+    
+    # loop through list elements and put data into one array + store labels
+    for ith, data_curr in enumerate(data_list):
+        data_array = np.append(data_array, data_curr)
+        label_list.append(len(data_curr)*data_labels[ith])
+    
+    return (data_array, label_list) 
 # =============================================================================
 """
 
@@ -126,18 +148,18 @@ class DataLoader(Frame):
         self.filelist.bind('<<ListboxSelect>>', self.on_select)
 
         if TKDND_FLAG:
-            self.filelist.dnd_bind('<<DropEnter>>', Expresso.drop_enter)
-            self.filelist.dnd_bind('<<DropPosition>>', Expresso.drop_position)
-            self.filelist.dnd_bind('<<DropLeave>>', Expresso.drop_leave)
-            self.filelist.dnd_bind('<<Drop>>', Expresso.file_drop)
-            self.filelist.dnd_bind('<<Drop:DND_Files>>', Expresso.file_drop)
-            self.filelist.dnd_bind('<<Drop:DND_Text>>', Expresso.file_drop)
+            self.filelist.dnd_bind('<<DropEnter>>', postProcess.drop_enter)
+            self.filelist.dnd_bind('<<DropPosition>>', postProcess.drop_position)
+            self.filelist.dnd_bind('<<DropLeave>>', postProcess.drop_leave)
+            self.filelist.dnd_bind('<<Drop>>', postProcess.file_drop)
+            self.filelist.dnd_bind('<<Drop:DND_Files>>', postProcess.file_drop)
+            self.filelist.dnd_bind('<<Drop:DND_Text>>', postProcess.file_drop)
 
             self.filelist.drag_source_register(1, DND_TEXT, DND_FILES)
             # text.drag_source_register(3, DND_TEXT)
 
-            self.filelist.dnd_bind('<<DragInitCmd>>', Expresso.drag_init_listbox)
-            self.filelist.dnd_bind('<<DragEndCmd>>', Expresso.drag_end)
+            self.filelist.dnd_bind('<<DragInitCmd>>', postProcess.drag_init_listbox)
+            self.filelist.dnd_bind('<<DragEndCmd>>', postProcess.drag_end)
             # text.dnd_bind('<<DragInitCmd>>', drag_init_text)
 
         
@@ -172,10 +194,11 @@ class DataLoader(Frame):
     # -------------------------------------------------------------------------
     def add_data(self,parent):
         """ add a new data file into the listbox """
-        new_filename = postProcess.add_data(parent)
-        file_list = self.filelist.get(0, END)
-        if (len(new_filename) > 0) and (new_filename not in file_list):
-            self.filelist.insert(END, new_filename)
+        new_filename, new_data_name = postProcess.add_data(parent)
+        new_entry = "{} -- {}".format(new_data_name, new_filename)
+        entry_list = self.filelist.get(0, END)
+        if (len(new_filename) > 0) and (new_entry not in entry_list):
+            self.filelist.insert(END, new_entry)
         
     # -------------------------------------------------------------------------
     def rm_data(self, parent):
@@ -189,6 +212,35 @@ class DataLoader(Frame):
     def clear_data(self,parent):
         self.filelist.delete(0, END)
         parent.dataFlag = False
+
+# =============================================================================
+"""
+
+Define frame for setting data name as well as other plot misc. plot options
+
+ 
+"""  
+# =============================================================================
+class DataOptions(Frame):
+    """ Frame containg buttons to name data sets and set misc. options"""
+    def __init__(self, parent, col=0, row=0):
+        Frame.__init__(self, parent.master)
+        
+        self.options_frame = Frame(parent.master)
+        self.options_frame.grid(column=col, row=row, sticky=(N, S, E, W))
+        
+        self.eater_chkbtn = Checkbutton(self.options_frame, 
+                             text="Exclude flies without meals", 
+                             variable=parent.onlyEatersFlag, 
+                             command= lambda: postProcess.toggle_eaterFlag(parent))
+        self.eater_chkbtn.grid(column=col,row=row, padx=2, pady=2, 
+                            sticky=(N, S, E, W))
+                             
+    # ------------------------------
+    # callback functions
+    def update_toggle_var(*args):
+        """ function to update selection of plot variable """
+        print(parent.onlyEatersFlag.get())
         
 # =============================================================================
 """
@@ -198,7 +250,7 @@ statistical test to perform on the data
  
 """  
 # =============================================================================
-class plotOptions(Frame):
+class PlotOptions(Frame):
     """ Frame containg buttons to search for data"""
     def __init__(self, parent, col=0, row=0):
         Frame.__init__(self, parent.master)
@@ -231,7 +283,7 @@ class plotOptions(Frame):
         # -----------------------------------------
         # dropdown menu to select statistics test
         self.stats_type_frame = Frame(parent.master)
-        self.stats_type_frame.grid(column=col+1, row=row+1, sticky=(N, S, E, W))
+        self.stats_type_frame.grid(column=col, row=row+2, sticky=(N, S, E, W))
         # label
         self.stats_type_label = Label(self.stats_type_frame, 
                                      text='Statistical Test:',
@@ -244,22 +296,22 @@ class plotOptions(Frame):
                                            parent.statsType, 
                                            self.stats_type_choices[0],
                                            *self.stats_type_choices) 
-        self.stats_option_menu.grid(column=col, row=row+1,  padx=2, pady=2,
+        self.stats_option_menu.grid(column=col, row=row+1, padx=2, pady=2,
                                     sticky=(N, S, E, W))
         
         # -----------------------------------------
         # button to update plot window
         self.update_plot_button = Button(parent.master, text='Update Display',
                                    command= lambda: postProcess.update_display(parent))
-        self.update_plot_button.grid(column=col, row=row,columnspan=1,
-                                     padx=10, pady=2, sticky=S)        
+        self.update_plot_button.grid(column=col+1, row=row+1,columnspan=1,
+                                     padx=2, pady=2, sticky=(N, S, E, W))        
         
          # -----------------------------------------
         # button to update stats calculation
         self.update_stats_button = Button(parent.master, text='Update Stats',
                                    command= lambda: postProcess.update_stats(parent))
-        self.update_stats_button.grid(column=col+1, row=row,columnspan=1, 
-                                      padx=10, pady=2, sticky=S)        
+        self.update_stats_button.grid(column=col+1, row=row+2,columnspan=1, 
+                                      padx=2, pady=2, sticky=(N, S, E, W))        
         # ---------------------------------------------------------------------
         # callback functions
         def update_plot_var(*args):
@@ -314,14 +366,25 @@ class postProcess:
         # --------------------------------------------
         # options for plotting and stats tests
         self.plotVar = StringVar(master)
-        self.plot_var_list = ['Total Volume [nL]', 'Total Duration', 
-                              'Number of Events', 'Latency']
+        self.plot_var_list = ['Number of Meals', 
+                       'Total Volume (nL)', 'Total Duration Eating (s)',
+                        'Latency to Eat (s)', 'Cumulative Dist. (cm)',
+                        'Average Speed (cm/s)', 'Fraction Time Moving', 
+                        'Pre Meal Dist. (cm)', 'Food Zone Frac. (pre meal)',
+                        'Food Zone Frac. (post meal)', 'Mealwise Duration (s)', 
+                            'Mealwise Volume (nL)', 'Mealwise Dwell Time (s)']
         self.statsType = StringVar(master)
-        self.stats_type_list = ['Kruskal Wallis']
+        self.stats_type_list = ['Anderson-Darling', 'Conover', 'Mann-Whitney', 
+                                    'Tukey HSD', 'Wilcoxon']
         
         # just initialize with first entry
         #self.plotVar.set(self.plot_var_list[0])
         #self.statsType.set(self.stats_type_list[0])
+        
+        # -------------------------------------------
+        # data options
+        self.onlyEatersFlag = BooleanVar()
+        self.onlyEatersFlag.set(False)
         #--------------------------------------------
         # where to look for data (if defined in '_params' file)
         if os.path.exists(initDirectories[-1]):
@@ -337,7 +400,8 @@ class postProcess:
         #--------------------------------------------
         # initialize instances of frames created above
         self.data_loader = DataLoader(self, col=0, row=0)
-        self.plot_options = plotOptions(self, col=0, row=2)
+        self.data_options = DataOptions(self, col=0, row=2)
+        self.plot_options = PlotOptions(self, col=0, row=3)
 
         #--------------------------------------------  
         # initialize plot window
@@ -390,14 +454,27 @@ class postProcess:
                               title='Select summary analysis file (file type)')
         self.dataFlag = True
         
-        return data_fn
+        # also prompt user to assign the data set a name 
+        user_assigned_name = tkSimpleDialog.askstring("Input", 
+                                    "Assign name for file: {}".format(data_fn),
+                                    parent=self.master)
+        return (data_fn, user_assigned_name)
         
     #=================================================================== 
     @staticmethod 
     def load_data(self):
         """ read in data values from summary file """
-        data_fn_list = self.data_loader.filelist.get(0, END)
+        data_entry_list = self.data_loader.filelist.get(0, END)
         plot_var = self.plotVar.get() 
+        onlyEatersFlag = self.onlyEatersFlag.get()
+        
+        if "Mealwise" in plot_var:
+            mealwiseFlag = True
+        else:
+            mealwiseFlag = False 
+        # read data filenames/user-assigned data names from entries
+        data_fn_list = [s.split(' -- ')[1] for s in data_entry_list]
+        data_names = [s.split(' -- ')[0] for s in data_entry_list]
         
         fn_list = [] 
         data_list = [] 
@@ -414,12 +491,23 @@ class postProcess:
             if ext == ".xlsx":
                 # load in full xlsx workbook
                  wb = load_workbook(fn)
-                 # restirct attention to just summary sheet
+                 
+                 # restirct attention to either summary or event sheet 
+                 if mealwiseFlag:
+                     sheet_index = wb.sheetnames.index('Events')
+                     prefixStr = 'Mealwise '
+                 else:
+                     sheet_index = wb.sheetnames.index('Summary')
+                     prefixStr = ''
+                 wb.active = sheet_index
                  sheet = wb.active
+                 
                  # get column headers to see which data to grab
                  sheet_headers = [] 
-                 for c in range(1,8):
-                     sheet_headers.append(str(sheet.cell(row=1,column=c).value))
+                 max_col = sheet.max_column
+                 for c in range(1,max_col):
+                     sheet_headers.append(prefixStr + 
+                             str(sheet.cell(row=1,column=c).value))
                  
                  try:
                      col_idx = sheet_headers.index(plot_var)
@@ -435,13 +523,23 @@ class postProcess:
                  for i in range(1,max_row):
                      data_curr[i-1] = sheet.cell(row=i+1,column=col_idx+1).value
                      
-                 # remove any nan values
-                 data_curr = data_curr[~np.isnan(data_curr)]
+                 # remove non-eating flies, if selected, as well as nan values
+                 if onlyEatersFlag and not mealwiseFlag:
+                     num_meals_col_idx = sheet_headers.index('Number of Meals')
+                     num_meals = np.full((max_row-1,1),np.nan)
+                     for ii in range(1,max_row):
+                         num_meals[ii-1] = sheet.cell(row=ii+1, 
+                                            column=num_meals_col_idx+1).value
+                                             
+                     ignore_idx = (num_meals < 1) | (np.isnan(data_curr))
+                 else:
+                     ignore_idx = np.isnan(data_curr)
+                 data_curr = data_curr[~ignore_idx]
+                 
                  #data_curr = np.reshape(data_curr, (data_curr.size, 1))
                  
             elif ext == ".csv":
                 print("under construction")
-                print("We should just move to csv though")
                 continue
             else:
                 print("Invalid data file")
@@ -450,28 +548,57 @@ class postProcess:
             # add data from current file to list of data
             data_list.append(data_curr)
             
-        return (data_list, fn_list)
+        return (data_list, data_names)
         
         
     # ===================================================================
     @staticmethod
     def update_display(self):
          """ update inline plot display """
+         
          # get currently loaded data
-         (data_list, fn_list) = postProcess.load_data(self)
+         (data_list, data_names) = postProcess.load_data(self)
+         N_dsets = len(data_list)
+         if (N_dsets < 1):
+             print('No data to plot')
+             return
+             
+         # set of colors used for bar plots 
+         cmap = cm.get_cmap('Pastel1')
+         norm_range = np.linspace(0,1,num=N_dsets)
+         colors = cmap(norm_range)
+         
          # get current plotting data
          plot_var = self.plotVar.get() 
          
          # clear previous plot
          self.ax.cla()
          
+         # box plot properties
+         boxprops = dict(linestyle='-', linewidth=1, color='k')
+         flierprops = dict(marker='o', markeredgecolor='k', markersize=6,
+                        markerfacecolor='none')
+         medianprops = dict(linestyle='-', linewidth=1.5, color='k')
+         whiskerprops = dict(linestyle='-', linewidth=1, color='k')
          # plot new data
-         self.ax.boxplot(data_list)
-         
+         self.bplot = self.ax.boxplot(data_list,
+                                      vert=True, # vertical box alignment
+                                      patch_artist=True, # fill with color
+                                      labels=data_names, # to label boxes
+                                      boxprops=boxprops, # additional box properties
+                                      flierprops=flierprops, 
+                                      medianprops=medianprops,
+                                      whiskerprops=whiskerprops) 
+                                      
+         for patch, color in zip(self.bplot['boxes'], colors):
+             patch.set_facecolor(color)
          # handle axis labels, title, etc
-         self.ax.set_xticklabels(fn_list, fontsize='small',rotation=25)
+         self.ax.set_xticklabels(data_names, fontsize='small',rotation=25)
          self.ax.set_ylabel(plot_var)
-
+         
+         # correct y limits
+         self.ax.autoscale(enable=True, axis='y', tight=True)
+         
          # make sure axis labels fit         
          self.fig.tight_layout()
          
@@ -484,13 +611,16 @@ class postProcess:
     def update_stats(self):
          """ update statstics test """
          # get currently loaded data
-         (data_list, fn_list) = postProcess.load_data(self)
+         (data_list, data_names) = postProcess.load_data(self)
          
          # make sure we're comparing at least two groups
          if (len(data_list) < 2):
              print('Need to compare at least two data sets')
              return
-             
+         
+         # convert data to array 
+#         (data, labels) = convert_data_for_stats(data_list)
+         
          # get name of current data
          plot_var = self.plotVar.get() 
          
@@ -498,19 +628,43 @@ class postProcess:
          stats_type = self.statsType.get()
          
          # run stats test (plan is to fill this in with more test as time goes on)
-         if (stats_type == 'Kruskal Wallis'):
-             args = [dset for dset in data_list]
-             H, pval = mstats.kruskalwallis(*args)
+#         if (stats_type == 'Kruskal Wallis'):
+#             args = [dset for dset in data_list]
+#             H, pval = mstats.kruskalwallis(*args)
+         if (stats_type == 'Anderson-Darling'):
+             pval_mat = sp.posthoc_anderson
+         elif (stats_type == 'Conover'):
+             pval_mat = sp.posthoc_conover
+         elif (stats_type == 'Mann-Whitney'):
+             pval_mat = sp.posthoc_mannwhitney
+         elif (stats_type == 'Tukey HSD'):
+             pval_mat = sp.posthoc_tukey_hsd
+         elif (stats_type ==  'Wilcoxon'):
+             pval_mat = sp.posthoc_wilcoxon
          else:
              print('Invalid hypothesis test selection')
          
+         # assign labels to data frame output
+         pval_mat.columns = data_names
+         pval_mat.index = data_names
+         
+         # print stats results (nned to move this to gui)
+         print(pval_mat)
+         
          # update title to display stats
-         self.ax.set_title('{} test comparing {}: p = {}'.format(stats_type,
-                           plot_var, pval), fontsize='small')
+#         self.ax.set_title('{} test comparing {}: p = {}'.format(stats_type,
+#                           plot_var, pval), fontsize='small')
          # make sure axis labels fit         
          self.fig.tight_layout()
          # draw 
          self.canvas.draw()
+    # ===================================================================
+    @staticmethod
+    def toggle_eaterFlag(self):
+        """ toggle the checkbutton that excludes/includes non-eating flies"""
+        curr_val = self.onlyEatersFlag.get()
+        self.onlyEatersFlag.set(~curr_val)
+    
     # =====================================================================
     """ TkDND functions """
     if TKDND_FLAG:
@@ -572,14 +726,17 @@ class postProcess:
         @staticmethod
         def file_drop(event):
             if event.data:
-                valid_ext = [".avi", ".mov", ".mp4", ".mpg", ".mpeg", \
-                             ".rm", ".swf", ".vob", ".wmv"]
+                valid_ext = [".xlsx", ".csv"]
 
                 files = event.widget.tk.splitlist(event.data)
                 for f in files:
                     if os.path.exists(f) and f.endswith(tuple(valid_ext)):
-                        # print('Dropped file: "%s"' % f)
-                        event.widget.insert('end', f)
+        
+                        # also prompt user to assign the data set a name 
+                        data_name = tkSimpleDialog.askstring("Input", 
+                                    "Assign name for file: {}".format(f))
+                        new_entry = "{} -- {}".format(data_name, f)            
+                        event.widget.insert('end', new_entry)
                     else:
                         print('Not dropping file "%s": file does not exist or is invalid.' % f)
 
@@ -591,7 +748,10 @@ class postProcess:
 if __name__ == '__main__':
     screen_geometry = get_curr_screen_geometry()
     #print(screen_geometry)
-    root = Tk()
+    if TKDND_FLAG:
+        root = TkinterDnD.Tk()
+    else:
+        root = Tk()
     postProcess(root)
     root.mainloop()
 

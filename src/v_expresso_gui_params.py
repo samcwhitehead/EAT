@@ -31,8 +31,9 @@ analysisParams = {'wlevel' : 6,  #3 , #4
              'feeding_dist_min' : 0.35 , # cm #0.375
              'feeding_dist_min_x' : 0.375 , # cm #0.375
              'feeding_dist_min_y' : 0.5 , # cm #0.5
-             'feeding_move_frac_thresh' : 0.5 ,
-             'feeding_vel_max' : 0.1 } 
+             'feeding_move_frac_thresh' : 0.5 , # fraction
+             'feeding_vel_max' : 0.1 , # cm/s
+             'food_zone_rad' : 0.6 } #cm 
              
 guiParams = {'bgcolor' : 'white' ,
              'listbgcolor': '#222222' , 
