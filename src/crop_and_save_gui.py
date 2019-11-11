@@ -1,5 +1,11 @@
 # -*- coding: utf-8 -*-
 """
+GUI interface for cropping videos from the visual expresso system. videos are 
+cropped to ROIs containing a single channel to reduce computation time later in
+the analysis pipeline. This GUI also prompts the user to manually select the 
+location of the capillary tip for each channel--the tip becomes the (0,0) 
+position for the tracked coordinates
+
 Created on Mon May 07 20:19:33 2018
 
 @author: Fruit Flies
@@ -511,6 +517,15 @@ class VExpressoPreProcessing:
             self.master.destroy()
             self.master.quit()
     
+    def on_open_new_gui(self):
+        """Opens visual_expresso_gui_main.py' and exits program."""
+        if tkMessageBox.askokcancel("Open main GUI","Do you want to quit?"):
+            self.master.destroy()
+            self.master.quit()
+            # run script
+            os.system("python visual_expresso_gui_main.py") 
+            
+    
     def make_topmost(self):
         """Makes this window the topmost window"""
         self.master.lift()
@@ -525,8 +540,10 @@ class VExpressoPreProcessing:
         """ Menu bar """
         self.master.option_add('*tearOff', 'FALSE')
         self.master.menubar = Menu(self.master)
- 
+        
         self.master.menu_file = Menu(self.master.menubar)
+        self.master.menu_file.add_command(label='Open Main GUI', 
+                                          command=self.on_open_new_gui)
         self.master.menu_file.add_command(label='Exit', command=self.on_quit)
  
         self.master.menu_edit = Menu(self.master.menubar)

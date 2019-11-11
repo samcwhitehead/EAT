@@ -1461,7 +1461,9 @@ class BatchCombinedFrame(Frame):
         else:
             data_suffix = '_COMBINED_DATA.hdf5'
             data_filenames = [ent + data_suffix for ent in batch_list]
-            save_comb_time_series(data_filenames)
+            initdir, _ = os.path.split(data_filenames[0]) 
+            savedir = tkFileDialog.askdirectory(initialdir=initdir)
+            save_comb_time_series(data_filenames, savedir)
 
     def comb_data_batch(self, root):
         batch_list = self.batchlist.get(0, END)
@@ -1685,7 +1687,25 @@ class Expresso:
         if tkMessageBox.askokcancel("Quit", "Do you want to quit?"):
             self.master.destroy()
             self.master.quit()
-
+            
+    # ===================================================================
+    def on_open_crop_gui(self):
+        """Exits program."""
+        if tkMessageBox.askokcancel("Open crop and save GUI", 
+                                    "Do you want to quit?"):
+            self.master.destroy()
+            self.master.quit()   
+             # run script
+            os.system("python crop_and_save_gui.py") 
+     # ===================================================================
+    def on_open_pp_gui(self):
+        """Exits program."""
+        if tkMessageBox.askokcancel("Open post-processing GUI",
+                                    "Do you want to quit?"):
+            self.master.destroy()
+            self.master.quit()   
+             # run script
+            os.system("python post_processing_gui.py") 
     # ===================================================================
     def toggle_track_debug(self):
         """Turns on or off the tracking debug flags"""
@@ -1841,6 +1861,10 @@ class Expresso:
 
         # file menu
         self.master.menu_file = Menu(self.master.menubar)
+        self.master.menu_file.add_command(label='Open PRE-process GUI', 
+                                          command=self.on_open_crop_gui)
+        self.master.menu_file.add_command(label='Open POST-process GUI', 
+                                          command=self.on_open_pp_gui)
         self.master.menu_file.add_command(label='Exit', command=self.on_quit)
 
         # debug menu

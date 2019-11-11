@@ -22,7 +22,8 @@ from v_expresso_utils import interp_nans, hampel, moving_avg
 # check that data set actually contains data 
 def check_data_set(dset,t):
     dset_check = (dset != -1)
-    bad_data_flag = (np.sum(dset_check) == 0)
+    N_unique_vals = np.unique(dset).size
+    bad_data_flag = (np.sum(dset_check) == 0) or (N_unique_vals < 2)
     
     if bad_data_flag:
         dset = np.array([])

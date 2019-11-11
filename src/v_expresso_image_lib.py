@@ -267,11 +267,11 @@ def get_bg(filename, r, tracking_params=trackingParams, debugFlag=True,
     
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(morphSize,morphSize))
     
-    if verbose:
-        widgets = ['Finding background: ', progressbar.Percentage(),progressbar.Bar()]  
-        pbar = progressbar.ProgressBar(widgets=widgets, 
-                                       maxval=(N_frames-1)).start() 
-    #    print("Finding background...")
+#    if verbose:
+#        widgets = ['Finding background: ', progressbar.Percentage(),progressbar.Bar()]  
+#        pbar = progressbar.ProgressBar(widgets=widgets, 
+#                                       maxval=(N_frames-1)).start() 
+    print("Finding background...")
     # initialize data storage lists
     x_cm = [] 
     y_cm = [] 
@@ -371,9 +371,9 @@ def get_bg(filename, r, tracking_params=trackingParams, debugFlag=True,
                     delta_cm = np.nanmax(D)
             
             #if verbose and (np.mod(cc,50) == 0):
-            if verbose:
-                #print("Find BG: " + str(cc) + "/" +  str(N_frames) + " completed")
-                pbar.update(cc)   
+            if verbose and (np.mod(cc,500) == 0):
+                print("Find BG: {}/{} completed".format(cc,N_frames))
+                #pbar.update(cc)   
             
             
         cc+=1
@@ -477,7 +477,7 @@ def get_bg(filename, r, tracking_params=trackingParams, debugFlag=True,
         if min_thresh_guess < min_pix_thresh:
             min_thresh_guess = int(min_pix_thresh)
             
-        pbar.finish()
+        #pbar.finish()
         cap.release()
         
         #print('')
@@ -536,6 +536,7 @@ def get_bg(filename, r, tracking_params=trackingParams, debugFlag=True,
         
         cap.release()
     
+    print('Find BG complete')
     return (bg, x_cm, y_cm, mean_intensity_guess, min_thresh_guess)
 
 #-----------------------------------------------------------------------------
@@ -603,9 +604,10 @@ def get_cm(filename,bg,r,tracking_params=trackingParams, mean_intensity=130.0,
     
     # progress bar for CM completion (something weird happening here)
     if verbose:
-        widgets = ['Finding CM: ', progressbar.Percentage(), progressbar.Bar()]  
-        pbar = progressbar.ProgressBar(widgets=widgets, 
-                                       maxval=(N_frames-1)).start() 
+        print('Finding CM...')
+#        widgets = ['Finding CM: ', progressbar.Percentage(), progressbar.Bar()]  
+#        pbar = progressbar.ProgressBar(widgets=widgets, 
+#                                       maxval=(N_frames-1)).start() 
         
     
     if debugFlag:
@@ -618,9 +620,9 @@ def get_cm(filename,bg,r,tracking_params=trackingParams, mean_intensity=130.0,
     while ith < N_frames:
         
         #if verbose and (np.mod(ith,50) == 0):
-        if verbose:
-           #print("Find CM: " + str(ith) + "/" +  str(N_frames) + " completed")
-            pbar.update(ith)   
+        if verbose and (np.mod(ith,5000) == 0):
+           print("Find CM: {}/{} completed".format(ith, N_frames))
+           
        
         
         _, frame = cap.read()
@@ -800,7 +802,7 @@ def get_cm(filename,bg,r,tracking_params=trackingParams, mean_intensity=130.0,
     
     # print and return
     if verbose:
-        pbar.finish()    
+        #pbar.finish()    
         print('Finished center of mass for ' + filename)
         print('')
         drop_frame_str = "Dropped frames: " + str(len(dropped_frames)) 
@@ -1184,7 +1186,7 @@ def filter_fly_trajectory(xcm, ycm, t, PARAMS=trackingParams, filt_order=4,
     xcm_filt = signal.filtfilt(b_filt,a_filt,xcm_interp(t))
     ycm_filt = signal.filtfilt(b_filt,a_filt,ycm_interp(t))
     
-    return (xcm_filt, ycm_filt)
+    return (xcm_filt, ycm_filt, interp_idx)
 #------------------------------------------------------------------------------
 def process_visual_expresso(DATA_PATH, DATA_FILENAME, PARAMS=trackingParams, 
                             SAVE_DATA_FLAG = False, DEBUG_FLAG = False):
@@ -1228,7 +1230,7 @@ def process_visual_expresso(DATA_PATH, DATA_FILENAME, PARAMS=trackingParams,
             body_angle = None
 
     dt = np.mean(np.diff(t))
-    xcm_filt, ycm_filt = filter_fly_trajectory(xcm_curr, ycm_curr, t)
+    xcm_filt, ycm_filt, interp_idx = filter_fly_trajectory(xcm_curr,ycm_curr,t)
     
     # fit smoothing spline to calculate derivative
     sp_xcm = interpolate.UnivariateSpline(t,xcm_filt,s=SMOOTHING_FACTOR)

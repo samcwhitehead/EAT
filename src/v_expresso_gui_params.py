@@ -82,6 +82,7 @@ initDirectories = ["H:\\v_expresso data\\Feeding_annotation_videos",
                      "D:\\v_expresso_data\\Feeding_annotation_videos",
                      "D:\\v_expresso_data\\Dopamine_data",
                      "D:\\v_expresso_data\\Dopamine_data\\updated",
-                     "D:\\v_expresso_data\\Matrix_Data\\24hr\\1000mM"]
+                     "D:\\v_expresso_data\\Matrix_Data\\24hr\\1000mM",
+                     "D:\\v_expresso_data\\Stonemetz\\Dessication Test"]
              
              

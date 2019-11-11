@@ -555,7 +555,8 @@ def plot_bout_aligned_var(basic_entries, var='vel_mag', window=300,
     return fig
 #------------------------------------------------------------------------------
 # function to save time series of combined data
-def save_comb_time_series(data_filenames):
+def save_comb_time_series(data_filenames, savedir):
+    print("Saving combined time series...")
     # loop through each data file
     for data_fn in data_filenames:
         if not os.path.exists(os.path.abspath(data_fn)):
@@ -563,10 +564,11 @@ def save_comb_time_series(data_filenames):
         else:
             # load combined data file
             filepath, filename = os.path.split(data_fn)
+            filename_noExt, _ = os.path.splitext(filename)
             flyCombinedData = hdf5_to_flyCombinedData(filepath, filename)
             
             # get save name for csv file
-            csv_filename = os.path.join(filepath, filename + ".csv")
+            csv_filename = os.path.join(savedir, filename_noExt + ".csv")
             column_headers=['Frame', 'Time (s)','Channel Raw (nL)', 
                             'Channel Smoothed (nL)', 'Feeding (bool)', 
                             'X Position (cm)','Y Position (cm)', 
@@ -623,7 +625,9 @@ def save_comb_time_series(data_filenames):
                 save_writer.writerow(row)
                 
             out_path.close()
-
+            print("Done saving {}".format(csv_filename))
+            
+    print("Completed saving time series data")
 #------------------------------------------------------------------------------
 # function to save time series of combined data
 def save_comb_summary(entry_list, xlsx_filename, 

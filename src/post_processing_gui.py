@@ -58,6 +58,7 @@ TKDND_FLAG = True
 if TKDND_FLAG:
     from TkinterDnD2 import *
 
+plt.style.use('classic')
 # ===================================================================
 """
 
@@ -72,9 +73,10 @@ def convert_data_for_stats(data_list, data_labels):
     # loop through list elements and put data into one array + store labels
     for ith, data_curr in enumerate(data_list):
         data_array = np.append(data_array, data_curr)
-        label_list.append(len(data_curr)*data_labels[ith])
-    
-    return (data_array, label_list) 
+        label_list.append(len(data_curr)*[data_labels[ith]])
+        
+    label_list_flat = [item for sublist in label_list for item in sublist]
+    return (data_array, label_list_flat) 
 # =============================================================================
 """
 
@@ -577,7 +579,7 @@ class postProcess:
          # box plot properties
          boxprops = dict(linestyle='-', linewidth=1, color='k')
          flierprops = dict(marker='o', markeredgecolor='k', markersize=6,
-                        markerfacecolor='none')
+                        markerfacecolor='none',linestyle='none')
          medianprops = dict(linestyle='-', linewidth=1.5, color='k')
          whiskerprops = dict(linestyle='-', linewidth=1, color='k')
          # plot new data
@@ -618,8 +620,6 @@ class postProcess:
              print('Need to compare at least two data sets')
              return
          
-         # convert data to array 
-#         (data, labels) = convert_data_for_stats(data_list)
          
          # get name of current data
          plot_var = self.plotVar.get() 
@@ -632,15 +632,21 @@ class postProcess:
 #             args = [dset for dset in data_list]
 #             H, pval = mstats.kruskalwallis(*args)
          if (stats_type == 'Anderson-Darling'):
-             pval_mat = sp.posthoc_anderson
+             pval_mat = sp.posthoc_anderson(data_list)
          elif (stats_type == 'Conover'):
-             pval_mat = sp.posthoc_conover
+             pval_mat = sp.posthoc_conover(data_list)
          elif (stats_type == 'Mann-Whitney'):
-             pval_mat = sp.posthoc_mannwhitney
+             pval_mat = sp.posthoc_mannwhitney(data_list)
          elif (stats_type == 'Tukey HSD'):
-             pval_mat = sp.posthoc_tukey_hsd
+             # convert data to array 
+             (data, labels) = convert_data_for_stats(data_list, data_names)
+             pval_mat = sp.posthoc_tukey_hsd(data, labels )
          elif (stats_type ==  'Wilcoxon'):
-             pval_mat = sp.posthoc_wilcoxon
+             try:
+                 pval_mat = sp.posthoc_wilcoxon(data_list)
+             except ValueError:
+                 print('Unequal N -- cannot use Wilcoxon test')
+                 return
          else:
              print('Invalid hypothesis test selection')
          
