@@ -1783,7 +1783,7 @@ def batch_plot_heatmap(VID_FILENAMES, bin_size = 0.1, SAVE_FLAG = False,
                         x_lim = trackingParams['x_lim'],
                         y_lim = trackingParams['y_lim'], 
                         c_lim = trackingParams['c_lim'],
-                        interp_style = 'none', t_lim=None):    
+                        interp_style = 'gaussian', t_lim=None):    
                             #interp_style = 'gaussian'
     h5_filenames = [] 
     fig_heatmap, ax_heatmap = plt.subplots(1,1,figsize=(4,8))
