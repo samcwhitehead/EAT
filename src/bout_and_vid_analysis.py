@@ -20,13 +20,10 @@ import h5py
 from load_hdf5_data import load_hdf5
 from bout_analysis_func import check_data_set, plot_channel_bouts, bout_analysis
 from v_expresso_gui_params import (analysisParams, trackingParams)
-from v_expresso_image_lib import (visual_expresso_main, 
-                                    process_visual_expresso, 
-                                    plot_body_cm, plot_body_vel, 
-                                    plot_body_angle, plot_moving_v_still, 
-                                    plot_cum_dist, hdf5_to_flyTrackData,
-                                    save_vid_time_series, save_vid_summary, 
-                                    batch_plot_cum_dist, batch_plot_heatmap)
+from v_expresso_image_lib import (visual_expresso_main, process_visual_expresso, 
+                                  hdf5_to_flyTrackData, save_vid_time_series, 
+                                  save_vid_summary, batch_plot_cum_dist, 
+                                  batch_plot_heatmap)
 
 #from PIL import ImageTk, Image
 import ast 
@@ -636,6 +633,57 @@ def save_comb_summary(entry_list, xlsx_filename,
     # info for converting file types
     data_suffix = '_COMBINED_DATA.hdf5'
     
+    # ------------------------------------------------------------------------
+    # first check if the combined data exists -- if not, save whatever summary
+    # we can (i.e. just tracking data)
+    comb_data_idx = [os.path.exists(os.path.abspath(ent + data_suffix)) for 
+                        ent in entry_list]
+    if not any(comb_data_idx):
+        # check for tracking data
+        track_suffix = '_TRACKING_PROCESSED.hdf5'
+        track_data_idx = [os.path.exists(os.path.abspath(ent + track_suffix)) 
+                            for ent in entry_list]
+                                
+        # if we find tracking data, save just tracking summary
+        if any(track_data_idx):
+            print('No feeding data -- saving just tracking data')
+            vid_suffix = '.avi'
+            vid_filenames = [os.path.abspath(ent + vid_suffix) for ent in 
+                                entry_list]
+            save_vid_summary(vid_filenames, xlsx_filename)
+            return
+        
+        # if there's neither combined nor tracking data, we assume there's 
+        # feeding (channel) data
+        print('No tracking data -- saving just feeding data')
+        
+        # import necessary functions
+        from batch_bout_analysis_func import (batch_bout_analysis,
+                                              save_batch_xlsx)
+        
+        # convert list elements to be readable for batch channel analysis
+        batch_list = [basic2channel(ent) for ent in entry_list]
+        
+        # plug in values for time limits/bin size
+        tmin = np.nan 
+        tmax = np.nan 
+        tbin = 20 
+        
+        # calculate batch channel stats
+        (bouts_list,name_list, volumes_list, consumption_per_fly,
+             duration_per_fly, latency_per_fly) = \
+                batch_bout_analysis(batch_list, tmin, tmax, tbin, 
+                                    plotFlag=False, combAnalysisFlag=False)
+
+        # save batch channel results 
+        save_batch_xlsx(xlsx_filename, bouts_list, name_list, volumes_list,
+                        consumption_per_fly, duration_per_fly, latency_per_fly)
+                        
+        print('Completed saving {}'.format(xlsx_filename))    
+        return
+    # ------------------------------------------------------------------------
+    # if we've gotten here, we can proceed with normal combined data summary 
+            
     # variables to put in summary page
     summary_heading = ['Filename', 'Bank', 'Channel',  'Number of Meals', 
                        'Total Volume (nL)', 'Total Duration Eating (s)',

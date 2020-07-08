@@ -22,6 +22,8 @@ import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
 import os
 import sys
 #import h5py
@@ -202,19 +204,35 @@ class DataLoader(Frame):
         if (len(new_filename) > 0) and (new_entry not in entry_list):
             self.filelist.insert(END, new_entry)
         
+        # since data list has changed, need to update stats before saving
+        self.statsCalcFlag.set(False)
     # -------------------------------------------------------------------------
     def rm_data(self, parent):
         selected = sorted(self.filelist.curselection(), reverse=True)
         for item in selected:
             self.filelist.delete(item)
         
+        # if we've removed all data, indicate that GUI no longer has data
         if (len(self.filelist.get(0,END)) < 1): 
             parent.dataFlag = False 
+            
+        # if there's a display up, remove the data we just took off
+        if (parent.displayOnFlag.get()):
+            postProcess.update_display(parent)
+        
+        # since data list has changed, need to update stats before saving
+        self.statsCalcFlag.set(False)
     # -------------------------------------------------------------------------    
     def clear_data(self,parent):
         self.filelist.delete(0, END)
         parent.dataFlag = False
-
+        
+        # if there's a display up, remove the data we just took off
+        if (parent.displayOnFlag.get()):
+            postProcess.update_display(parent)
+        
+        # since data list has changed, need to update stats before saving
+        self.statsCalcFlag.set(False)
 # =============================================================================
 """
 
@@ -339,9 +357,50 @@ Frame for displaying stats, saving, etc
  
 """  
 # =============================================================================
-
-
-      
+class SaveOptions(Frame):
+    """ Frame containg buttons to save plots and/or stats"""
+    def __init__(self, parent, col=0, row=0):
+        Frame.__init__(self, parent.master)
+        # -----------------------------------------
+        # define button to save plot
+        self.save_plot_button = Button(parent.master, text='Save Plot',
+                                   command= lambda: self.save_plot(parent))
+        self.save_plot_button.grid(column=col+1, row=row,columnspan=1,
+                                     padx=2, pady=2, sticky=(N, S, E, W))        
+        
+         # -----------------------------------------
+        # button to update stats calculation
+        self.save_stats_button = Button(parent.master, text='Save Stats',
+                                   command= lambda: self.save_stats(parent))
+        self.save_stats_button.grid(column=col+2, row=row,columnspan=1, 
+                                      padx=2, pady=2, sticky=(N, S, E, W))        
+        
+    # ---------------------------------------------------------------------
+    # callback functions
+    def save_plot(self, parent):
+        """ function to save current plot window """
+        if (parent.displayOnFlag.get()):
+            fig_save_fn = tkFileDialog.asksaveasfilename(
+                                                initialdir=parent.init_dir,
+                                                defaultextension=".pdf",
+                                                title='Select save filename')
+            parent.fig.savefig(fig_save_fn)
+        else:
+            print('No plot to save')
+            
+    def save_stats(self, parent):
+        """ function to save current stats output """
+        if (parent.statsCalcFlag.get()):
+            statsType = parent.statsTypeCurr
+            stats_save_fn = tkFileDialog.asksaveasfilename(
+                                                initialdir=parent.init_dir,
+                                                defaultextension=".csv",
+                                                initialfile=statsType,
+                                                title='Select save filename')
+            parent.statsCurr.to_csv(stats_save_fn)
+            
+        else:
+            print('Need to recalculate stats')
 #==============================================================================
 # Main class for GUI
 #==============================================================================
@@ -382,11 +441,21 @@ class postProcess:
         # just initialize with first entry
         #self.plotVar.set(self.plot_var_list[0])
         #self.statsType.set(self.stats_type_list[0])
+
+        # -------------------------------------------
+        # do we currently have a plot displayed?
+        self.displayOnFlag = BooleanVar()
+        self.displayOnFlag.set(False)
+        
+        # do we currently have stats calculated?
+        self.statsCalcFlag = BooleanVar()
+        self.statsCalcFlag.set(False)
         
         # -------------------------------------------
         # data options
         self.onlyEatersFlag = BooleanVar()
         self.onlyEatersFlag.set(False)
+        
         #--------------------------------------------
         # where to look for data (if defined in '_params' file)
         if os.path.exists(initDirectories[-1]):
@@ -404,7 +473,8 @@ class postProcess:
         self.data_loader = DataLoader(self, col=0, row=0)
         self.data_options = DataOptions(self, col=0, row=2)
         self.plot_options = PlotOptions(self, col=0, row=3)
-
+        self.save_options = SaveOptions(self, col=2, row=4)
+        
         #--------------------------------------------  
         # initialize plot window
         #self.canvasFig= plt.figure(1) ;
@@ -416,9 +486,16 @@ class postProcess:
                                                             master=self.master)
         self.canvas.draw()
         self.canvas.get_tk_widget().grid(column=2, row=0, padx=10, pady=5, sticky=N)
-        self.canvas._tkcanvas.grid(column=2, row=0, rowspan=4,padx=10, pady=5, sticky=N)
+        self.canvas._tkcanvas.grid(column=2, row=0, rowspan=4,columnspan=4,
+                                   padx=10, pady=5, sticky=N)
         self.fig.tight_layout()
         self.ax.set_axis_off()
+        
+        # -------------------------------------------
+        # initialize stats storage array
+        self.statsCurr = None 
+        self.statsTypeCurr = None 
+        
         #--------------------------------------------
         # extra bit for quit command
         self.master.protocol("WM_DELETE_WINDOW", self.on_quit)
@@ -454,12 +531,23 @@ class postProcess:
         """ add summary data file to listbox by requesting user input """
         data_fn = tkFileDialog.askopenfilename(initialdir=self.init_dir,
                               title='Select summary analysis file (file type)')
-        self.dataFlag = True
         
-        # also prompt user to assign the data set a name 
-        user_assigned_name = tkSimpleDialog.askstring("Input", 
+        # check if data file exists
+        if os.path.exists(data_fn):
+            self.dataFlag = True
+        
+            # also prompt user to assign the data set a name 
+            fn_basename = os.path.basename(os.path.splitext(data_fn)[0])
+            #print(data_basename)
+            user_assigned_name = tkSimpleDialog.askstring("Input", 
                                     "Assign name for file: {}".format(data_fn),
+                                    initialvalue=fn_basename,
                                     parent=self.master)
+        
+        # otherwise return empty entries                            
+        else:
+            data_fn = None
+            user_assigned_name = None                          
         return (data_fn, user_assigned_name)
         
     #=================================================================== 
@@ -496,21 +584,32 @@ class postProcess:
                  
                  # restirct attention to either summary or event sheet 
                  if mealwiseFlag:
-                     sheet_index = wb.sheetnames.index('Events')
-                     prefixStr = 'Mealwise '
+                     try:
+                         sheet_index = wb.sheetnames.index('Events')
+                         prefixStr = 'Mealwise '
+                     except ValueError:
+                         print('Error: no Events data in file')
+                         continue
                  else:
-                     sheet_index = wb.sheetnames.index('Summary')
-                     prefixStr = ''
+                     try:
+                         sheet_index = wb.sheetnames.index('Summary')
+                         prefixStr = ''
+                     except ValueError:
+                         print('Error: no Events data in file')
+                         continue
+                     
+                 # set selected sheet to active
                  wb.active = sheet_index
                  sheet = wb.active
                  
                  # get column headers to see which data to grab
                  sheet_headers = [] 
                  max_col = sheet.max_column
-                 for c in range(1,max_col):
+                 for c in range(1,max_col+1):
                      sheet_headers.append(prefixStr + 
                              str(sheet.cell(row=1,column=c).value))
                  
+                 # try to read data from specified column
                  try:
                      col_idx = sheet_headers.index(plot_var)
                  except ValueError:
@@ -527,15 +626,19 @@ class postProcess:
                      
                  # remove non-eating flies, if selected, as well as nan values
                  if onlyEatersFlag and not mealwiseFlag:
-                     num_meals_col_idx = sheet_headers.index('Number of Meals')
-                     num_meals = np.full((max_row-1,1),np.nan)
-                     for ii in range(1,max_row):
-                         num_meals[ii-1] = sheet.cell(row=ii+1, 
-                                            column=num_meals_col_idx+1).value
-                                             
-                     ignore_idx = (num_meals < 1) | (np.isnan(data_curr))
+                     try:
+                         num_meals_col_idx = sheet_headers.index('Number of Meals')
+                         num_meals = np.full((max_row-1,1),np.nan)
+                         for ii in range(1,max_row):
+                             num_meals[ii-1] = sheet.cell(row=ii+1, 
+                                                column=num_meals_col_idx+1).value
+                                    
+                         ignore_idx = (num_meals < 1) | (np.isnan(data_curr))
+                     except ValueError:
+                         ignore_idx = np.ones_like(data_curr,dtype=bool)
                  else:
-                     ignore_idx = np.isnan(data_curr)
+                     ignore_idx = np.isnan(data_curr) | (data_curr < 0)
+                 
                  data_curr = data_curr[~ignore_idx]
                  
                  #data_curr = np.reshape(data_curr, (data_curr.size, 1))
@@ -563,6 +666,9 @@ class postProcess:
          N_dsets = len(data_list)
          if (N_dsets < 1):
              print('No data to plot')
+             self.displayOnFlag.set(False)
+             self.ax.cla()
+             self.canvas.draw()
              return
              
          # set of colors used for bar plots 
@@ -599,7 +705,7 @@ class postProcess:
          self.ax.set_ylabel(plot_var)
          
          # correct y limits
-         self.ax.autoscale(enable=True, axis='y', tight=True)
+         self.ax.autoscale(enable=True, axis='y', tight=False)
          
          # make sure axis labels fit         
          self.fig.tight_layout()
@@ -607,6 +713,12 @@ class postProcess:
          
          # draw figure
          self.canvas.draw()
+         
+         # update the boolean value that tells us whether the display is up
+         self.displayOnFlag.set(True)
+         
+         # update stats boolean to make sure we're not using the wrong stats
+         self.statsCalcFlag.set(False)
          
     # ===================================================================
     @staticmethod
@@ -637,10 +749,16 @@ class postProcess:
              pval_mat = sp.posthoc_conover(data_list)
          elif (stats_type == 'Mann-Whitney'):
              pval_mat = sp.posthoc_mannwhitney(data_list)
+         #elif (stats_type == 'Tukey'):
+         #     # convert data to array 
+         #    (data, labels) = convert_data_for_stats(data_list, data_names)
+         #    pval_mat = sp.posthoc_tukey(data)
          elif (stats_type == 'Tukey HSD'):
              # convert data to array 
              (data, labels) = convert_data_for_stats(data_list, data_names)
              pval_mat = sp.posthoc_tukey_hsd(data, labels )
+             print('NB: for Tukey HSD, 1 = significant, 0 = not significant,' + 
+                     'and -1 = diagonal element at alpha = 0.05')
          elif (stats_type ==  'Wilcoxon'):
              try:
                  pval_mat = sp.posthoc_wilcoxon(data_list)
@@ -654,7 +772,7 @@ class postProcess:
          pval_mat.columns = data_names
          pval_mat.index = data_names
          
-         # print stats results (nned to move this to gui)
+         # print stats results (need to move this to gui)
          print(pval_mat)
          
          # update title to display stats
@@ -664,13 +782,21 @@ class postProcess:
          self.fig.tight_layout()
          # draw 
          self.canvas.draw()
+         
+         # add current stats to GUI structure
+         self.statsCalcFlag.set(True)
+         self.statsCurr = pval_mat
+         self.statsTypeCurr = stats_type
+         
     # ===================================================================
     @staticmethod
     def toggle_eaterFlag(self):
         """ toggle the checkbutton that excludes/includes non-eating flies"""
         curr_val = self.onlyEatersFlag.get()
-        self.onlyEatersFlag.set(~curr_val)
-    
+        self.onlyEatersFlag.set(not curr_val)
+        
+        # since data list has changed, need to update stats before saving
+        self.statsCalcFlag.set(False)
     # =====================================================================
     """ TkDND functions """
     if TKDND_FLAG:
@@ -732,15 +858,17 @@ class postProcess:
         @staticmethod
         def file_drop(event):
             if event.data:
-                valid_ext = [".xlsx", ".csv"]
+                valid_ext = [".xlsx"] #[".xlsx", ".csv"]
 
                 files = event.widget.tk.splitlist(event.data)
                 for f in files:
                     if os.path.exists(f) and f.endswith(tuple(valid_ext)):
         
                         # also prompt user to assign the data set a name 
+                        fn_basename = os.path.basename(os.path.splitext(f)[0])
                         data_name = tkSimpleDialog.askstring("Input", 
-                                    "Assign name for file: {}".format(f))
+                                    "Assign name for file: {}".format(f),
+                                    initialvalue=fn_basename)
                         new_entry = "{} -- {}".format(data_name, f)            
                         event.widget.insert('end', new_entry)
                     else:

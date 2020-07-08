@@ -13,6 +13,7 @@ from scipy import signal, interpolate
 
 import h5py
 import csv 
+from openpyxl import Workbook
 
 import matplotlib.pyplot as plt
 #import time
@@ -1468,7 +1469,7 @@ def save_vid_time_series(VID_FILENAMES):
         out_path.close()
  
  #------------------------------------------------------------------------------
-def save_vid_summary(VID_FILENAMES, CSV_FILENAME):
+def save_vid_summary(VID_FILENAMES, XLSX_FILENAME):
     
     column_headers = ['Filename', 'Bank', 'Channel', 'Cumulative Dist. (cm)',
                       'Average Speed (cm/s)', 'Fraction Time Moving']
@@ -1490,17 +1491,21 @@ def save_vid_summary(VID_FILENAMES, CSV_FILENAME):
         except AttributeError:
             print(hdf5_filename + ' not yet analyzed--failed to save')
             print('')
-    if sys.version_info[0] < 3:
-        out_path = open(CSV_FILENAME,mode='wb')
-    else:
-        out_path = open(CSV_FILENAME, 'w', newline='')
-    save_writer = csv.writer(out_path)                      
-    save_writer.writerow(column_headers)                      
     
-        
+    
+    # ---------------------------------
+    # INITIALIZE WORKBOOK
+    # ---------------------------------
+    wb = Workbook()    
+    
+    ws_summary = wb.active
+    ws_summary.title = "Summary"
+    
+    # add column headers to pages
+    ws_summary.append(column_headers)         
+    
     for h5_fn in h5_filenames:
         filepath = os.path.splitext(h5_fn)[0]  
-        
         
         with h5py.File(h5_fn,'r') as f:
             try:
@@ -1521,19 +1526,27 @@ def save_vid_summary(VID_FILENAMES, CSV_FILENAME):
                 channel_curr = filepath_split.split('_')[-4] + '_' + \
                                 filepath_split.split('_')[-3]
                 
-                row_mat = np.vstack((filename_curr, bank_curr, channel_curr,
-                                     cum_dist_max, mean_speed, perc_moving))
-                row_mat = np.transpose(row_mat) 
+                row_mat = [filename_curr, bank_curr, channel_curr, 
+                           cum_dist_max, mean_speed, perc_moving]
+#                row_mat = np.vstack((filename_curr, bank_curr, channel_curr,
+#                                     cum_dist_max, mean_speed, perc_moving))
+#                row_mat = np.transpose(row_mat) 
             except KeyError:
                 print('Invalid File Selected:')
                 print(h5_fn)
                 print('')
                 continue 
 
-            for row in row_mat:
-                save_writer.writerow(row)
+            #for row in row_mat:
+            ws_summary.append(row_mat)
+            
+    # -------------------------------------
+    # SAVE XLSX FILE
+    # -------------------------------------           
+    wb.save(XLSX_FILENAME)
+    print('Completed saving {}'.format(XLSX_FILENAME))           
                     
-    out_path.close()
+    #out_path.close()
     
 #------------------------------------------------------------------------------
 

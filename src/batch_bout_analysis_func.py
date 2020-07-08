@@ -38,15 +38,15 @@ def batch_bout_analysis(channel_entry_list, tmin, tmax, tbin_size, plotFlag=Fals
     name_list = [] 
     t_global = np.array([])
     
-     # limits for time axis. assigned to full t range if no values are entered
-    if np.isnan(tmin):
-        tmin = np.min(t_global)
-    if np.isnan(tmax):
-        tmax = np.max(t_global)
-    if np.isnan(tbin_size):
-        tbin_size = 20 
+#     # limits for time axis. assigned to full t range if no values are entered
+#    if np.isnan(tmin):
+#        tmin = np.min(t_global)
+#    if np.isnan(tmax):
+#        tmax = np.max(t_global)
+#    if np.isnan(tbin_size):
+#        tbin_size = 20 
         
-        
+    
     for entry in channel_entry_list:
         filepath, filekeyname, groupkeyname = entry.split(', ',2)
         dset, t = load_hdf5(filepath,filekeyname,groupkeyname)        

@@ -42,7 +42,7 @@ guiParams = {'bgcolor' : 'white' ,
              'buttonbgcolor': '#222222' ,
              'plotbgcolor' : '#3e3d42' , 
              'plottextcolor' : '#c994c7' ,
-             'labelfontstr' : 'Helvetica 14 bold'}
+             'labelfontstr' : 'Helvetica 12 bold'}
              
 trackingParams = {'fly_size_range' : [20, 100] ,
             'bg_min_dist' : 40 , 
@@ -83,6 +83,7 @@ initDirectories = ["H:\\v_expresso data\\Feeding_annotation_videos",
                      "D:\\v_expresso_data\\Dopamine_data",
                      "D:\\v_expresso_data\\Dopamine_data\\updated",
                      "D:\\v_expresso_data\\Matrix_Data\\24hr\\1000mM",
-                     "D:\\v_expresso_data\\Stonemetz\\Dessication Test"]
+                     "D:\\v_expresso_data\\Stonemetz\\Dessication Test",
+                     "D:\\v_expresso_data\\Stonemetz\\No Food No Capillary"]
              
              

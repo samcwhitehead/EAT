@@ -10,7 +10,7 @@ Expresso system with user-annotated video frames.
 """
 #------------------------------------------------------------------------------
 import os
-import sys
+#import sys
 import cv2
 import numpy as np
 import h5py
