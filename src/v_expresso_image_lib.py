@@ -1509,9 +1509,9 @@ def save_vid_summary(VID_FILENAMES, XLSX_FILENAME):
         
         with h5py.File(h5_fn,'r') as f:
             try:
-                cum_dist = f['BodyCM']['cum_dist'].value 
-                vel_mag = f['BodyVel']['vel_mag'].value 
-                moving_ind = f['BodyVel']['moving_ind'].value 
+                cum_dist = f['BodyCM']['cum_dist'][:]
+                vel_mag = f['BodyVel']['vel_mag'][:]
+                moving_ind = f['BodyVel']['moving_ind'][:] 
                 
                 # parameters we want to save
                 mean_speed = np.mean(vel_mag[moving_ind])
@@ -1765,8 +1765,8 @@ def batch_plot_cum_dist(VID_FILENAMES, SAVE_FLAG = False,
         with h5py.File(h5_fn,'r') as f:
             # get kinematics
             try:
-                t = f['Time']['t'].value
-                cum_dist = f['BodyCM']['cum_dist'].value
+                t = f['Time']['t'][:]
+                cum_dist = f['BodyCM']['cum_dist'][:]
                 if np.amax(t) > max_t:
                     max_t = np.amax(t)
             except KeyError:

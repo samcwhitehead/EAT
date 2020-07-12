@@ -176,8 +176,12 @@ def buildBatchPanel(frame, btn_names, btn_labels, tboxFlag=False, row=0, col=0,
     
     # add in entry boxes for time? (min, max, bin size)
     if tboxFlag:
+        # types of entry box
         t_entries = ['t_min', 't_max', 't_bin']
+        # set default entries
         t_defaults = ['0', '2000', '20']
+       
+        # generate entry boxes and labels
         entry_width = 6 
         frame.t_entries = {} 
         frame.t_entry_labels = {} 
@@ -188,7 +192,8 @@ def buildBatchPanel(frame, btn_names, btn_labels, tboxFlag=False, row=0, col=0,
             # generate entry box and place in grid
             lbl = Label(frame.button_frame, text=entType + ':')
             lbl.grid(column=0, row=r, padx=padx, pady=pady, sticky=E) #NSEW
-            entry_box = Entry(frame.button_frame, width=entry_width)
+            entry_box = Entry(frame.button_frame, width=entry_width) 
+                              #textvariable=entDefault)
             entry_box.insert(END, entDefault)
             entry_box.grid(column=1, row=r, padx=px, pady=pady, sticky=W)
             
@@ -273,8 +278,11 @@ def drag_init_listbox(event):
     # by tkdnd and the drop targets like file managers or text editors
     
     data = ()
-    if listbox.curselection():
-        data = tuple([listbox.get(i) for i in listbox.curselection()])
+#    if listbox.curselection():
+#        data = tuple([listbox.get(i) for i in listbox.curselection()])
+#        print('Dragging :', data)
+    if event.widget.curselection():
+        data = tuple([event.widget.get(i) for i in event.widget.curselection()])
         print('Dragging :', data)
     # tuples can also be used to specify possible alternatives for
     # action type and DnD type:

@@ -622,7 +622,8 @@ class BatchChannelFrame(Frame):
             tkMessageBox.showinfo(title='Error',
                                   message='Add data to batch box for batch analysis')
             return
-        
+            
+        # get time info
         try:
             tmin = int(self.t_entries['t_min'].get())
             tmax = int(self.t_entries['t_max'].get())
@@ -650,23 +651,23 @@ class BatchChannelFrame(Frame):
             return
         else:
             try:
-                tmin = int(self.tmin_entry.get())
-                tmax = int(self.tmax_entry.get())
-                tbin = int(self.tbin_entry.get())
+                tmin = int(self.t_entries['t_min'].get())
+                tmax = int(self.t_entries['t_max'].get())
+                tbin = int(self.t_entries['t_bin'].get())
             except:
                 tkMessageBox.showinfo(title='Error',
                                       message='Set time range and bin size')
                 return
 
-            (self.bouts_list, self.name_list, self.volumes_list, self.consumption_per_fly,
-             self.duration_per_fly, self.latency_per_fly) = \
+            bouts_list, name_list, volumes_list, consumption, dur, latency = \
                 batch_bout_analysis(batch_list, tmin, tmax, tbin, plotFlag=False,
                                     combAnalysisFlag=comb_analysis_flag)
 
             save_filename = tkFileDialog.asksaveasfilename(defaultextension=".xlsx")
-            save_batch_xlsx(save_filename, self.bouts_list, self.name_list,
-                            self.volumes_list, self.consumption_per_fly,
-                            self.duration_per_fly, self.latency_per_fly)
+            save_batch_xlsx(save_filename, bouts_list, name_list,
+                            volumes_list, consumption, dur, latency)
+            
+            print('Completed saving {}'.format(save_filename))
     # --------------------------------------------------------
     # save times series analyses of batch channel data
     def save_time_series(self, root):
@@ -967,7 +968,8 @@ class BatchCombinedFrame(Frame):
                 filename_prefix = os.path.splitext(vid_filename)[0]
                 track_filename = filename_prefix + "_TRACKING.hdf5"
                 flyTrackData = process_visual_expresso(file_path, track_filename,
-                                                       SAVE_DATA_FLAG=True, DEBUG_FLAG=False)
+                                                       SAVE_DATA_FLAG=True,
+                                                       DEBUG_FLAG=False)
 
                 # perform feeding analysis
                 channel_entry = basic2channel(data_file)
@@ -1510,24 +1512,47 @@ class Expresso:
             return seldir
     
     # ===================================================================
-    #@staticmethod
+    # perform checks to make sure a given file in search directory is valid
+    # (i.e. should be added to appropriate listbox). Also returns standardized 
+    # form for filename
     def is_valid_dir_file(self, f, fileType):
+        # ----------------------------------------------
+        # tests if selected file type is channel data
         if (fileType == 'channel'):
             valid_ext = (".hdf5")
             invalid_end = ('VID_INFO.hdf5', 'TRACKING.hdf5', 
                            'TRACKING_PROCESSED.hdf5', 'COMBINED_DATA.hdf5')
             is_valid = f.endswith(valid_ext) and not f.endswith(invalid_end)
+            
+            # for channel data files, format should already be good
+            f_out = f 
+        
+        # ----------------------------------------------
+        # tests if selected data is a video file
         elif (fileType == 'video'):
             valid_ext = (".avi", ".mov", ".mp4", ".mpg", ".mpeg", ".rm", 
                          ".swf", ".vob", ".wmv")
+            processed_sfx = ("_TRACKING_PROCESSED.hdf5", "_COMBINED_DATA.hdf5")
             is_valid=f.endswith(valid_ext) and ('channel' in f) and ('XP' in f)
-            is_valid = is_valid or ('_TRACKING_PROCESSED.hdf5' in f)
-            is_valid = is_valid or ('_COMBINED_DATA.hdf5' in f)
+            processed_chk = any(sfx in f for sfx in processed_sfx)
+            is_valid = is_valid or processed_chk
+            
+            # since we're allowing analyzed hdf5 files as well, need to make 
+            # sure file formats are all the same
+            if is_valid and processed_chk:
+                f_split = f.split('_')
+                f_out = '_'.join(f_split[:-2])
+                f_out = f_out + ".avi" 
+            else:
+                f_out = f 
+        # -------------------------------------------------------------------
+        # file should be either video or channel -- otherwise return nothing     
         else:
             print('Error: invalid fileType')
             is_valid = False
+            f_out = None
         
-        return is_valid
+        return (is_valid, f_out)
     # ===================================================================
     @staticmethod
     def scan_dirs(self, fileType):
@@ -1551,14 +1576,20 @@ class Expresso:
         for ind in selected_ind:
             temp_dir = temp_dirlist[ind]
             for f in os.listdir(temp_dir):
-                if self.is_valid_dir_file(f, fileType):
-                    files.append(os.path.join(temp_dir, f))
+                # check for validity and generate standardized file format
+                validFlag, f_new = self.is_valid_dir_file(f, fileType)
+                # if valid, add file
+                if validFlag:
+                    files.append(os.path.join(temp_dir, f_new))
         
         # make sure we don't pull duplicates
         files = list(set(files))
         
         # normalize paths to current OS
         files = [os.path.normpath(f) for f in files]
+        
+        # sort files
+        files.sort()
         
         # save current directory to frame structure      
         self.datadir_curr = temp_dir
@@ -1572,58 +1603,10 @@ class Expresso:
             files = []
             return files
 
-            # ===================================================================
+            
 
-    @staticmethod
-    def scan_dirs_vid(self):
-        # build list of detected files from selected paths
-        files = []
-        temp_dirlist = list(self.dirframe.listbox.get(0, END))
-        selected_ind = sorted(self.dirframe.listbox.curselection(), reverse=False)
-
-        valid_ext = [".avi", ".mov", ".mp4", ".mpg", ".mpeg", \
-                     ".rm", ".swf", ".vob", ".wmv"]
-        if len(selected_ind) < 1:
-            tkMessageBox.showinfo(title='Error',
-                                  message='Please select directory from which to grab video files')
-            return files
-
-        for ind in selected_ind:
-            temp_dir = temp_dirlist[ind]
-            for f in os.listdir(temp_dir):
-                # check if this is a video file that matches expected format
-                crop_chk = ('channel' in f) and ('XP' in f)
-                if f.endswith(tuple(valid_ext)) and crop_chk:
-                    files.append(os.path.join(temp_dir, f))
-                
-                # also check if this is a processed data file
-                processed_chk = ('_TRACKING_PROCESSED.hdf5' in f)
-                combined_data_chk = ('_COMBINED_DATA.hdf5' in f)
-                if processed_chk or combined_data_chk:
-                    f_split = f.split('_')
-                    f_new = '_'.join(f_split[:-2]) + '.avi'
-                    files.append(os.path.join(temp_dir, f_new))
-        
-        # make sure we don't pull duplicates
-        files = list(set(files))
-        
-        # normalize paths to current OS
-        files = [os.path.normpath(f) for f in files]
-        
-        # save current directory to frame structure           
-        self.datadir_curr = temp_dir
-        
-        # return files to populate listbox or let user know if they don't exist
-        if len(files) > 0:
-            return files
-        else:
-            tkMessageBox.showinfo(title='Error',
-                                  message='No video files found.')
-            files = []
-            return files
-
-            # ===================================================================
-
+   
+    # ===================================================================
     @staticmethod
     def unpack_files(self):
         selected_ind = self.fdata_frame.listbox.curselection()
@@ -1647,8 +1630,7 @@ class Expresso:
 
         return fileKeyNames
 
-        # ===================================================================
-
+    # ===================================================================
     @staticmethod
     def unpack_xp(self):
         selected_ind = self.xpdata_frame.listbox.curselection()
