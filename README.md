@@ -22,7 +22,7 @@ EAT can be run on Windows, Linux, or MacOS. We recommend an **Anaconda environme
 	* Navigate to **./Visual Expresso/** in the Anaconda terminal (recommended), cmd, or Unix terminal
 	* Create the EAT Anaconda environment using the eat environment .yaml file by running `conda env create --file eat.yaml` in the terminal. 
 
-2. **Activate the Anaconda environment for EAT** Once the `eat` environment from Step 1 has been successfully created, activate it by running `conda activate eat` in the terminal
+2. **Activate the Anaconda environment for EAT** Once the `eat` environment from Step 2 has been successfully created, activate it by running `conda activate eat` in the terminal
 
 3. **Configure TkDND** TkDND is a tool to allow drag and drop functionality for the EAT GUI interfaces. To configure this appropriately:
 	* Confirm that your EAT repository contains a folder called *TkinterDnD2* (*./Visual Expresso/src/TkinterDnD2*). This should be included by default. If this folder is not present in your EAT repository , you can download a new version of TkDND via sourceforge: [TkDND download](https://sourceforge.net/projects/tkdnd/)
@@ -31,7 +31,7 @@ EAT can be run on Windows, Linux, or MacOS. We recommend an **Anaconda environme
 	* Move the extracted tkdnd binaries folder, which should be called *tkdnd2.8*, into the *tcl* folder of the Anaconda `eat` environment. For Windows, this *tcl* folder may look like *./Anaconda3/envs/eat/tcl/*. Note: if installing without using an Anaconda environment, the *tkdnd2.8* folder should be moved to the *tcl* folder of whatever Python installation you're using.
 
 4. **Open IDE of choice to run/edit EAT code** While the EAT code can be run from the terminal as any python script, using an integrated development environment (IDE) to open/edit/run EAT code can make the process more intuitive. The IDE that you are most comfortable with is best, but, if you do not already have a preferred IDE, we provide a few suggestions below:
-	* Spyder, the default Anaconda IDE, is installed in the `eat` environment by default. To open Spyder, run the command `spyder` in the Anaconda terminal (with the `eat` environment activated, as in Step 2). To avoid issues with plots produced by the EAT code, we suggest changing the default graphics backend in Spyder by going to *Tools --> Preferences --> IPython Console --> Graphics (tab)* and switching the default, "Inline", to "Tkinter".
+	* Spyder, the default Anaconda IDE, is installed in the `eat` environment by default. To open Spyder, run the command `spyder` in the Anaconda terminal (with the `eat` environment activated, as in Step 3). To avoid issues with plots produced by the EAT code, we suggest changing the default graphics backend in Spyder by going to *Tools --> Preferences --> IPython Console --> Graphics (tab)* and switching the default, "Inline", to "Tkinter".
 	* PyCharm is added as an optional installation alongside Anaconda. To get PyCharm to work along with EAT, open the EAT code as a Project, then set the `eat` environment as the Project Interpreter. That process is described here: [Using PyCharm and Anaconda environment](https://docs.anaconda.com/anaconda/user-guide/tasks/pycharm/).
 	
 ### Usage ###
