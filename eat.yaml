@@ -19,6 +19,7 @@ dependencies:
   - statsmodels
   - opencv
   - scikit-learn
+  - gagphil1::tkinterdnd2
   - pip:
     - changepy
     - scikit-posthocs
