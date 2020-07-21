@@ -17,21 +17,17 @@ EAT can be run on Windows, Linux, or MacOS. We recommend an **Anaconda environme
 1. **Install Anaconda** [Anaconda installation file download](https://www.anaconda.com/products/individual) [Anaconda installation guide](https://docs.anaconda.com/anaconda/install/) 
 
 2. **Download EAT code** [EAT code repository](https://bitbucket.org/samcwhitehead/visual_expresso_gui/src/master/)
-	* Download EAT code from the Bitbucket repository: [EAT code repository](https://bitbucket.org/samcwhitehead/visual_expresso_gui/src/master/) [need to update once we put on github]
-	* Extract EAT files wherever you'd like to store Python scripts. We'll refer to the folder containg the EAT repository as *../Visual Expresso/* [need to update code repository name]
-	* Navigate to **./Visual Expresso/** in the Anaconda terminal (recommended), cmd, or Unix terminal
-	* Create the EAT Anaconda environment using the eat environment .yaml file by running `conda env create --file eat.yaml` in the terminal. 
 
 3. **Create EAT Anaconda environment** In the Anaconda terminal (or Unix terminal), navigate to the root folder of the EAT code and run the following:
-	* `conda env create --file eat.yaml`
-	* `conda activate eat`
+	* **`conda env create --file eat.yaml` **
+	* ** `conda activate eat` **
 
 4. **Run EAT** Choose to run EAT from either the Anaconda terminal or Spyder.
 	* (terminal) In the same terminal, run:
-		* cd src
-		* python `visual_expresso_gui_main.py`
+		* ** `cd src` **
+		* ** `python visual_expresso_gui_main.py` **
 	* (Spyder) In the same terminal, run:
-		* `Spyder`. 
+		* ** `Spyder` ** 
 		* In Spyder, open `visual_expresso_gui_main.py` and run
 	
 ### Usage ###
