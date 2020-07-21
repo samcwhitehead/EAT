@@ -1137,9 +1137,9 @@ class BatchCombinedFrame(Frame):
             return
         else:
             try:
-                tmin = int(self.tmin_entry.get())
-                tmax = int(self.tmax_entry.get())
-                tbin = int(self.tbin_entry.get())
+                tmin = int(self.t_entries['t_min'].get())
+                tmax = int(self.t_entries['t_max'].get())
+                tbin = int(self.t_entries['t_bin'].get())
             except:
                 tkMessageBox.showinfo(title='Error',
                                       message='Set time range and bin size')
@@ -1165,9 +1165,9 @@ class BatchCombinedFrame(Frame):
         else:
             # try to grab time limits
             try:
-                tmin = int(self.tmin_entry.get())
-                tmax = int(self.tmax_entry.get())
-                # tbin = int(self.tbin_entry.get())
+                tmin = int(self.t_entries['t_min'].get())
+                tmax = int(self.t_entries['t_max'].get())
+                # tbin = int(self.t_entries['t_bin'].get())
             except:
                 tkMessageBox.showinfo(title='Error',
                                       message='Set time range and bin size')
@@ -1188,9 +1188,9 @@ class BatchCombinedFrame(Frame):
         else:
             # try to grab time limits
             try:
-                tmin = int(self.tmin_entry.get())
-                tmax = int(self.tmax_entry.get())
-                # tbin = int(self.tbin_entry.get())
+                tmin = int(self.t_entries['t_min'].get())
+                tmax = int(self.t_entries['t_max'].get())
+                # tbin = int(self.t_entries['t_bin'].get())
             except:
                 tkMessageBox.showinfo(title='Error',
                                       message='Set time range and bin size')

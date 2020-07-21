@@ -1362,7 +1362,7 @@ def hdf5_to_flyTrackData(DATA_PATH, DATA_FILENAME):
         flyTrackData['moving_ind'] = f['BodyVel']['moving_ind'][:]
 
         try:
-            flyTrackData['body_angle'] = f['BodyAngle']['body_angle'].value
+            flyTrackData['body_angle'] = f['BodyAngle']['body_angle'][:]
         except KeyError:
             flyTrackData['body_angle'] = np.nan
 
@@ -1392,7 +1392,7 @@ def save_vid_time_series(VID_FILENAMES):
         filepath = os.path.splitext(h5_fn)[0]
         with h5py.File(h5_fn, 'r') as f:
             csv_filename = filepath + ".csv"
-            t = f['Time']['t'].value
+            t = f['Time']['t'][:]
 
             # get kinematics
             try:
@@ -1833,7 +1833,7 @@ def batch_plot_heatmap(VID_FILENAMES, bin_size=0.1, SAVE_FLAG=False,
                 xcm = f['BodyCM']['xcm_smooth'][:]
                 ycm = f['BodyCM']['ycm_smooth'][:]
                 if t_lim:
-                    t = f['Time']['t'].value
+                    t = f['Time']['t'][:]
                     t_lim_idx = (t >= t_lim[0]) & (t <= t_lim[1])
                     xcm = xcm[t_lim_idx]
                     ycm = ycm[t_lim_idx]

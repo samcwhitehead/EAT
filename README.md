@@ -14,9 +14,9 @@ EAT is designed to be used for analyzing data from Expresso behavioral assays. T
 
 EAT can be run on Windows, Linux, or MacOS. We recommend an **Anaconda environment** based installation, as it provides the easiest route to get things running, but the installation process can be adapted to other Python distributions as needed. The steps to install EAT using an Anaconda environment are described below:
 
-1. **Install Anaconda** [Anaconda installation file download](https://www.anaconda.com/products/individual) [Anaconda installation guide](https://docs.anaconda.com/anaconda/install/) 
+1. **Install Anaconda** [File download](https://www.anaconda.com/products/individual) | [Installation guide](https://docs.anaconda.com/anaconda/install/) 
 
-2. **Download EAT code** [EAT code repository](https://bitbucket.org/samcwhitehead/visual_expresso_gui/src/master/)
+2. **Download EAT code** [Bitbucket repository](https://bitbucket.org/samcwhitehead/visual_expresso_gui/src/master/)
 
 3. **Create EAT Anaconda environment** In the Anaconda terminal (or Unix terminal), navigate to the root folder of the EAT code and run the following:
 	* **`conda env create --file eat.yaml` **
