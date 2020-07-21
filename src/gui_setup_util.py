@@ -135,7 +135,7 @@ def buildBatchPanel(frame, btn_names, btn_labels, tboxFlag=False, row=0, col=0,
     # --------------------------------------------------------------------
     # initialize frame for listbox
     px = 10
-    py = 35
+    py = 10 #35
     cs = 2 
     rs = 2
     frame.listbox_frame = Frame(frame)

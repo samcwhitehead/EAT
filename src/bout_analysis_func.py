@@ -77,13 +77,13 @@ def process_signal(dset, wtype='db4',wlevel=5,medfilt_window=7,
     
     return dset_denoised_med
 
-#---------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------
 # returns slopes for intervals defined by changepoint detection
 def fit_piecewise_slopes(dset_denoised_med,frames, 
                          analysis_params=analysisParams, var_user_flag=False):
     
-    #wtype = analysis_params['wtype']
-    #wlevel = analysis_params['wlevel']
+    # wtype = analysis_params['wtype']
+    # wlevel = analysis_params['wlevel']
     clip_level = 1 
     
     # calculate derivative of signal at each point

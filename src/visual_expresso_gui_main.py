@@ -6,8 +6,9 @@ Created on Sat Jul 04 11:37:30 2020
 """
 
 import matplotlib
+
 matplotlib.use('TkAgg')
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 matplotlib.rcParams['pdf.fonttype'] = 42
 matplotlib.rcParams['ps.fonttype'] = 42
 import os
@@ -29,7 +30,7 @@ else:
     from tkinter import filedialog as tkFileDialog
     from tkinter import messagebox as tkMessageBox
 
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, MultiCursor
 
 from load_hdf5_data import load_hdf5
@@ -40,8 +41,8 @@ from bout_and_vid_analysis import (channel2basic, vid2basic, basic2channel,
                                    basic2vid, flyCombinedData_to_hdf5,
                                    save_comb_time_series, save_comb_summary,
                                    bout_analysis_wTracking, merge_v_expresso_data,
-                                   plot_bout_aligned_var)
-from v_expresso_image_lib import (visual_expresso_main,
+                                   plot_bout_aligned_var, save_comb_summary_hdf5)
+from v_expresso_image_lib import (visual_expresso_tracking_main,
                                   process_visual_expresso,
                                   plot_body_cm, plot_body_vel,
                                   plot_body_angle, plot_moving_v_still,
@@ -56,46 +57,50 @@ try:
     from TkinterDnD2 import *
     from gui_setup_util import (buildButtonListboxPanel, buildBatchPanel,
                                 bindToTkDnD)
+
     TKDND_FLAG = True
 except ImportError:
     print('Error: could not load TkDnD libraries. Drag/drop disabled')
-    from gui_setup_util import buildButtonListboxPanel, buildBatchPanel                               
+    from gui_setup_util import buildButtonListboxPanel, buildBatchPanel
 ## ============================================================================
 
 # =============================================================================
 """ Top UI frame containing the list of directories to be scanned. """
+
+
 # =============================================================================
 class DirectoryFrame(Frame):
     def __init__(self, parent, col=0, row=0, filedir=None):
         Frame.__init__(self, parent.master)
-        
+
         # define names/labels for buttons + listboxes
-        self.button_names = ['add','remove','clear_all']
+        self.button_names = ['add', 'remove', 'clear_all']
         self.button_labels = ['Add Directory', 'Remove Directory', 'Clear All']
         self.label_str = 'Directory list:'
 
         self.listbox_name = 'directories'
         # generate general frame with buttons + listbox
-        self = buildButtonListboxPanel(self, parent.master, self.button_names, 
-                                self.button_labels, self.label_str, 
-                                row=row, col=col)
-        
+        self = buildButtonListboxPanel(self, parent.master, self.button_names,
+                                       self.button_labels, self.label_str,
+                                       row=row, col=col)
+
         # assign button callbacks
         self.buttons['add']['command'] = lambda: self.add_items(parent)
         self.buttons['remove']['command'] = self.rm_items
-        self.buttons['clear_all']['command'] = self.clear_all 
-        
+        self.buttons['clear_all']['command'] = self.clear_all
+
         # switch remove button to 'disabled' until something is selected
         self.buttons['remove']['state'] = DISABLED
-            
+
         # bind listbox
         self.listbox.bind('<<ListboxSelect>>', self.on_select)
         if TKDND_FLAG:
             self = bindToTkDnD(self, self.listbox_name)
-        
+
         # make sure listbox retains selection
-        self.listbox['exportselection'] = False 
-    # ----------------------------------------- 
+        self.listbox['exportselection'] = False
+
+    # -----------------------------------------
     # Callback functions
     # ----------------------------------------- 
     # enable/disable buttons upon listbox cursor select
@@ -104,56 +109,59 @@ class DirectoryFrame(Frame):
             self.buttons['remove']['state'] = NORMAL
         else:
             self.buttons['remove']['state'] = DISABLED
-            
+
     # add user-selected directory to listbox
     def add_items(self, parent):
         current_entries = self.listbox.get(0, END)
         new_entry = Expresso.get_dir(parent)
         if new_entry not in current_entries:
             self.listbox.insert(END, new_entry)
-            
+
     # remove selected directory from listbox
     def rm_items(self):
         # Reverse sort the selected indexes to ensure all items are removed
         selected = sorted(self.listbox.curselection(), reverse=True)
         for item in selected:
             self.listbox.delete(item)
-            
+
     # clear all directories from listbox
     def clear_all(self):
         self.listbox.delete(0, END)
 
+
 # =============================================================================
 """ UI frame containing the list of channel data files to analyze  """
+
+
 # =============================================================================
 class FileDataFrame(Frame):
     def __init__(self, parent, col=0, row=0):
         Frame.__init__(self, parent.master)
-        
+
         # define names/labels for buttons + listboxes
-        self.button_names = ['add','remove','clear_all']
+        self.button_names = ['add', 'remove', 'clear_all']
         self.button_labels = ['Get HDF5 Files', 'Remove Files', 'Clear All']
         self.label_str = 'Channel data files:'
-        self.listbox_name = 'channels' 
-        
+        self.listbox_name = 'channels'
+
         # generate general frame with buttons + listbox
-        self = buildButtonListboxPanel(self, parent.master, self.button_names, 
-                                self.button_labels, self.label_str,
-                                row=row, col=col)
-        
+        self = buildButtonListboxPanel(self, parent.master, self.button_names,
+                                       self.button_labels, self.label_str,
+                                       row=row, col=col)
+
         # assign button callbacks
         self.buttons['add']['command'] = lambda: self.add_items(parent)
         self.buttons['remove']['command'] = self.rm_items
-        self.buttons['clear_all']['command'] = self.clear_all 
-        
+        self.buttons['clear_all']['command'] = self.clear_all
+
         # switch remove button to 'disabled' until something is selected
         self.buttons['remove']['state'] = DISABLED
-        
+
         # bind listbox
         self.listbox.bind('<<ListboxSelect>>', self.on_select)
         if TKDND_FLAG:
             self = bindToTkDnD(self, self.listbox_name)
-            
+
     # ----------------------------------------- 
     # Callback functions
     # ----------------------------------------- 
@@ -164,54 +172,57 @@ class FileDataFrame(Frame):
             self.buttons['remove']['state'] = NORMAL
         else:
             self.buttons['remove']['state'] = DISABLED
-    
+
     # add channel data files (hdf5) from selected directory to listbox
     def add_items(self, parent):
-        newfiles = Expresso.scan_dirs(parent,'channel')
+        newfiles = Expresso.scan_dirs(parent, 'channel')
         file_list = self.listbox.get(0, END)
         if len(newfiles) > 0:
             for file in tuple(newfiles):
                 if file not in file_list:
                     self.listbox.insert(END, file)
-                    
+
     # remove selected file from listbox
     def rm_items(self):
         selected = sorted(self.listbox.curselection(), reverse=True)
         for item in selected:
             self.listbox.delete(item)
-            
+
     # clear all files from listbox
     def clear_all(self):
         self.listbox.delete(0, END)
 
+
 # =============================================================================
 """ UI frame containing the bank groups for feeding channel data  """
-# =============================================================================       
+
+
+# =============================================================================
 class XPDataFrame(Frame):
     def __init__(self, parent, col=0, row=0):
         Frame.__init__(self, parent.master)
-        
+
         # define names/labels for buttons + listboxes
-        self.button_names = ['add','remove','clear_all']
+        self.button_names = ['add', 'remove', 'clear_all']
         self.button_labels = ['Unpack HDF5 Files', 'Remove XP', 'Clear All']
         self.label_str = 'XP list:'
-        
+
         # generate general frame with buttons + listbox
-        self = buildButtonListboxPanel(self, parent.master, self.button_names, 
-                                self.button_labels, self.label_str,
-                                row=row, col=col)
-        
+        self = buildButtonListboxPanel(self, parent.master, self.button_names,
+                                       self.button_labels, self.label_str,
+                                       row=row, col=col)
+
         # assign button callbacks
         self.buttons['add']['command'] = lambda: self.add_items(parent)
         self.buttons['remove']['command'] = self.rm_items
         self.buttons['clear_all']['command'] = self.clear_all
-        
+
         # switch remove button to 'disabled' until something is selected
         self.buttons['remove']['state'] = DISABLED
-        
+
         # bind listbox
         self.listbox.bind('<<ListboxSelect>>', self.on_select)
-        
+
     # ----------------------------------------- 
     # Callback functions
     # ----------------------------------------- 
@@ -221,7 +232,7 @@ class XPDataFrame(Frame):
             self.buttons['remove']['state'] = NORMAL
         else:
             self.buttons['remove']['state'] = DISABLED
-            
+
     # add bank (xp) list from selected feeding data files to listbox
     def add_items(self, parent):
         current_entries = self.listbox.get(0, END)
@@ -229,51 +240,54 @@ class XPDataFrame(Frame):
         for ent in tuple(new_entries):
             if ent not in current_entries:
                 self.listbox.insert(END, ent)
-            
+
     # remove selected bank from listbox
     def rm_items(self):
         # Reverse sort the selected indexes to ensure all items are removed
         selected = sorted(self.listbox.curselection(), reverse=True)
         for item in selected:
             self.listbox.delete(item)
-            
+
     # clear all banks from listbox
     def clear_all(self):
         self.listbox.delete(0, END)
-    
+
+
 # =============================================================================
 """ UI frame containing channels (subdivision of banks) for feeding data  """
+
+
 # =============================================================================
 class ChannelDataFrame(Frame):
     def __init__(self, parent, col=0, row=0):
         Frame.__init__(self, parent.master)
-        
+
         # define names/labels for buttons + listboxes
-        self.button_names = ['add','remove','clear_all', 'plot', 'save']
-        self.button_labels = ['Unpack XP', 'Remove Channels', 'Clear All', 
+        self.button_names = ['add', 'remove', 'clear_all', 'plot', 'save']
+        self.button_labels = ['Unpack XP', 'Remove Channels', 'Clear All',
                               'Plot Channel', 'Save CSV']
         self.label_str = 'Channel list:'
-        
+
         # generate general frame with buttons + listbox
-        self = buildButtonListboxPanel(self, parent.master, self.button_names, 
-                                self.button_labels, self.label_str,
-                                row=row, col=col)
-        
+        self = buildButtonListboxPanel(self, parent.master, self.button_names,
+                                       self.button_labels, self.label_str,
+                                       row=row, col=col)
+
         # assign button callbacks
         self.buttons['add']['command'] = lambda: self.add_items(parent)
         self.buttons['remove']['command'] = self.rm_items
         self.buttons['clear_all']['command'] = self.clear_all
         self.buttons['plot']['command'] = lambda: self.plot_channel(parent)
         self.buttons['save']['command'] = lambda: self.save_results(parent)
-        
+
         # switch buttons to 'disabled' until something is selected
         self.buttons['remove']['state'] = DISABLED
         self.buttons['plot']['state'] = DISABLED
         self.buttons['save']['state'] = DISABLED
-        
+
         # bind listbox
         self.listbox.bind('<<ListboxSelect>>', self.on_select)
-        
+
     # ----------------------------------------- 
     # Callback functions
     # ----------------------------------------- 
@@ -283,13 +297,13 @@ class ChannelDataFrame(Frame):
             self.buttons['remove']['state'] = NORMAL
             self.buttons['plot']['state'] = NORMAL
             self.buttons['save']['state'] = NORMAL
-#            self.selection_ind = sorted(self.listbox.curselection(),
-#                                        reverse=False)
+        #            self.selection_ind = sorted(self.listbox.curselection(),
+        #                                        reverse=False)
         else:
             self.buttons['remove']['state'] = DISABLED
             self.buttons['plot']['state'] = DISABLED
             self.buttons['save']['state'] = DISABLED
-            
+
     # -------------------------------------------------
     # add channels from selected banks to listbox
     def add_items(self, parent):
@@ -298,19 +312,19 @@ class ChannelDataFrame(Frame):
         for channel in tuple(newchannels):
             if channel not in channel_list:
                 self.listbox.insert(END, channel)
-                
+
     # -------------------------------------------------
     # remove selected channels from listbox
     def rm_items(self):
         selected = sorted(self.listbox.curselection(), reverse=True)
         for item in selected:
             self.listbox.delete(item)
-    
+
     # -------------------------------------------------      
     # clear all elements of listbox
     def clear_all(self):
         self.listbox.delete(0, END)
-        
+
     # -------------------------------------------------
     # plot feeding data for current channel
     def plot_channel(self, parent):
@@ -318,25 +332,26 @@ class ChannelDataFrame(Frame):
         selected_ind = sorted(self.listbox.curselection(), reverse=False)
         menu_debug_flag = parent.debug_bout.get()
         menu_save_flag = parent.save_all_plots.get()
-         
+
         # loop through selected channels and plot
-        for ind in selected_ind:    
+        for ind in selected_ind:
             channel_entry = self.listbox.get(ind)
-            
+
             # analyze current channel
             dset, frames, t, dset_smooth, bouts, volumes = \
                 Expresso.get_channel_data(parent, channel_entry,
                                           DEBUG_FLAG=menu_debug_flag)
-                                          
+
             # if data set is not abnormal, skip
             if (dset.size == 0):
                 print('Cannot read data from {} -- skipping'.format(channel_entry))
                 continue
-            
+
             # otherwise, make plot
             self.fig, self.ax1, self.ax2 = plot_channel_bouts(dset, dset_smooth,
                                                               t, bouts)
-            
+            self.fig.show()
+
             # turn on cursor
             self.multi = MultiCursor(self.fig.canvas, (self.ax1, self.ax2),
                                      color='dodgerblue', lw=1.0, useblit=True,
@@ -349,14 +364,13 @@ class ChannelDataFrame(Frame):
 
             self.fig.canvas.set_window_title(channel_name_full)
 
-           
             if menu_save_flag:
                 filename_no_ext, _ = os.path.splitext(filename)
                 save_filename = filename_no_ext + '_' + filekeyname + "_" + \
-                                    groupkeyname + '_bout_detection.png'
+                                groupkeyname + '_bout_detection.png'
                 savename_full = os.path.join(dirpath, save_filename)
                 self.fig.savefig(savename_full)
-            
+
     # ------------------------------------------------
     # save summary results in csv format
     def save_results(self, parent):
@@ -381,12 +395,25 @@ class ChannelDataFrame(Frame):
             volumes_col = self.volumes.reshape(self.volumes.size, 1)
             row_mat = np.hstack((bouts_transpose, self.t[bouts_transpose], volumes_col))
 
+            # prompt user to select location to save output
             if sys.version_info[0] < 3:
                 save_file = tkFileDialog.asksaveasfile(mode='wb',
                                                        defaultextension=".csv")
+                # check that file selection is valid
+                if not save_file:
+                    tkMessageBox.showinfo(title='Error', message='Invalid filename')
+                    return
+
+                # otherwise save results to csv
                 save_writer = csv.writer(save_file)
             else:
                 save_filename = tkFileDialog.asksaveasfilename(defaultextension=".csv")
+                # check that file selection is valid
+                if not save_filename:
+                    tkMessageBox.showinfo(title='Error', message='Invalid filename')
+                    return
+
+                # otherwise save results to csv
                 save_file = open(save_filename, 'w', newline='')
                 save_writer = csv.writer(save_file)
 
@@ -402,44 +429,46 @@ class ChannelDataFrame(Frame):
             tkMessageBox.showinfo(title='Error',
                                   message='No feeding bouts to save')
 
+
 # =============================================================================
 """ UI frame containing video files for tracking  """
+
+
 # =============================================================================
 class VideoDataFrame(Frame):
     def __init__(self, parent, col=0, row=0):
         Frame.__init__(self, parent.master)
-        
+
         # define names/labels for buttons + listboxes
-        self.button_names = ['add','remove','clear_all', 'analyze', 'plot']
-        self.button_labels = ['Get Video Files', 'Remove Files', 'Clear All', 
+        self.button_names = ['add', 'remove', 'clear_all', 'analyze', 'plot']
+        self.button_labels = ['Get Video Files', 'Remove Files', 'Clear All',
                               'Analyze Video', 'Plot Results']
         self.label_str = 'Video files:'
-        
+
         self.listbox_name = 'videos'
         # generate general frame with buttons + listbox
-        self = buildButtonListboxPanel(self, parent.master, self.button_names, 
-                                self.button_labels, self.label_str,
-                                row=row, col=col)
-        
+        self = buildButtonListboxPanel(self, parent.master, self.button_names,
+                                       self.button_labels, self.label_str,
+                                       row=row, col=col)
+
         # assign button callbacks
         self.buttons['add']['command'] = lambda: self.add_items(parent)
         self.buttons['remove']['command'] = self.rm_items
         self.buttons['clear_all']['command'] = self.clear_all
         self.buttons['analyze']['command'] = lambda: self.analyze_vid(parent)
         self.buttons['plot']['command'] = lambda: self.plot_results(parent)
-        
+
         # switch buttons to 'disabled' until something is selected
         self.buttons['remove']['state'] = DISABLED
         self.buttons['analyze']['state'] = DISABLED
         self.buttons['plot']['state'] = DISABLED
-        
+
         # bind listbox
         self.listbox.bind('<<ListboxSelect>>', self.on_select)
         if TKDND_FLAG:
             self = bindToTkDnD(self, self.listbox_name)
-        
-        
-    # ----------------------------------------- 
+
+    # -----------------------------------------
     # Callback functions
     # ----------------------------------------- 
     # enable/disable buttons upon listbox cursor select
@@ -448,60 +477,81 @@ class VideoDataFrame(Frame):
             self.buttons['remove']['state'] = NORMAL
             self.buttons['analyze']['state'] = NORMAL
             self.buttons['plot']['state'] = NORMAL
-#            self.selection_ind = sorted(self.listbox.curselection(),
-#                                        reverse=False)
+        #            self.selection_ind = sorted(self.listbox.curselection(),
+        #                                        reverse=False)
         else:
             self.buttons['remove']['state'] = DISABLED
             self.buttons['analyze']['state'] = DISABLED
             self.buttons['plot']['state'] = DISABLED
+
     # ----------------------------------------------------------
     # scan selected directory for video files to add to listbox
     def add_items(self, parent):
-        newfiles = Expresso.scan_dirs(parent,'video')
+        newfiles = Expresso.scan_dirs(parent, 'video')
         file_list = self.listbox.get(0, END)
         if len(newfiles) > 0:
             for file in tuple(newfiles):
                 if file not in file_list:
                     self.listbox.insert(END, file)
+
     # ----------------------------------------------------------
     # remove selected video from listbox
     def rm_items(self):
         selected = sorted(self.listbox.curselection(), reverse=True)
         for item in selected:
             self.listbox.delete(item)
-    
+
     # ----------------------------------------------------------
     # clear all videos in listbox
     def clear_all(self):
         self.listbox.delete(0, END)
-    
+
     # ----------------------------------------------------------
     # perform tracking analysis on selected video
     def analyze_vid(self, parent):
+        # get current video selection
         selected_ind = sorted(self.listbox.curselection(), reverse=False)
         if len(selected_ind) != 1:
             tkMessageBox.showinfo(title='Error',
                                   message='Please select only one video file for analysis')
             return
 
+        # determine whether or not we should use debugging options
         menu_debug_flag = parent.debug_tracking.get()
-        save_debug_flag = not (menu_debug_flag)
+        save_debug_flag = not menu_debug_flag
+
+        # get info from file name
         file_entry = self.listbox.get(selected_ind[0])
         file_path, filename = os.path.split(file_entry)
-        _ = visual_expresso_main(file_path, filename,
-                                 DEBUG_BG_FLAG=menu_debug_flag,
-                                 DEBUG_CM_FLAG=menu_debug_flag,
-                                 SAVE_DATA_FLAG=save_debug_flag,
-                                 ELLIPSE_FIT_FLAG=False,
-                                 PARAMS=trackingParams)
 
+        # name to save tracking results file to
         filename_prefix = os.path.splitext(filename)[0]
         track_filename = filename_prefix + "_TRACKING.hdf5"
+        track_filename_processed = filename_prefix + "_TRACKING_PROCESSED.hdf5"
 
-        _ = process_visual_expresso(file_path, track_filename,
-                                    SAVE_DATA_FLAG=save_debug_flag, DEBUG_FLAG=False)
+        # check if we've already analyzed this video
+        overWriteFlag = True
+        if os.path.exists(os.path.join(file_path, track_filename_processed)) and save_debug_flag:
+            yes_no_str = 'Tracking data already exists for {} -- do you wish to overwrite?'
+            overWriteFlag = tkMessageBox.askyesno(title='Overwrite?',
+                                                  message=yes_no_str.format(filename_prefix))
 
-        self.vid_filepath = file_entry
+        # then analyze or not depending on whether or not we want to overwrite (if we're saving)
+        if overWriteFlag:
+            # get raw center of mass tracking
+            _ = visual_expresso_tracking_main(file_path, filename,
+                                              DEBUG_BG_FLAG=menu_debug_flag,
+                                              DEBUG_CM_FLAG=menu_debug_flag,
+                                              SAVE_DATA_FLAG=save_debug_flag,
+                                              ELLIPSE_FIT_FLAG=False,
+                                              PARAMS=trackingParams)
+
+            # process raw tracking results
+            _ = process_visual_expresso(file_path, track_filename,
+                                        SAVE_DATA_FLAG=save_debug_flag, DEBUG_FLAG=False)
+
+        else:
+            print('Not overwriting {} -- exiting'.format(filename_prefix))
 
     def plot_results(self, parent):
         selected_ind = sorted(self.listbox.curselection(), reverse=False)
@@ -522,16 +572,10 @@ class VideoDataFrame(Frame):
             save_filename = os.path.abspath(save_filename)
             # save_filename = os.path.normpath(save_filename)
 
-            #            if self.vid_filepath == file_entry:
-            #                plot_body_cm(self.flyTrackData_smooth,SAVE_FLAG=menu_save_flag)
-            #                plot_body_vel(self.flyTrackData_smooth,SAVE_FLAG=menu_save_flag)
-            #                plot_moving_v_still(self.flyTrackData_smooth,SAVE_FLAG=menu_save_flag)
-            #                plot_cum_dist(self.flyTrackData_smooth,SAVE_FLAG=menu_save_flag)
             if os.path.exists(save_filename):
                 self.vid_filepath = file_entry
                 _, track_filename = os.path.split(save_filename)
-                self.flyTrackData_smooth = \
-                    hdf5_to_flyTrackData(file_path, track_filename)
+                self.flyTrackData_smooth = hdf5_to_flyTrackData(file_path, track_filename)
                 plot_body_cm(self.flyTrackData_smooth, SAVE_FLAG=menu_save_flag)
                 plot_body_vel(self.flyTrackData_smooth, SAVE_FLAG=menu_save_flag)
                 plot_moving_v_still(self.flyTrackData_smooth, SAVE_FLAG=menu_save_flag)
@@ -547,25 +591,28 @@ class VideoDataFrame(Frame):
                                           'using the <Analyze Video> button')
             return
 
+
 # =============================================================================
 """ UI frame containing batch analysis for just feeding data  """
+
+
 # =============================================================================
 class BatchChannelFrame(Frame):
     def __init__(self, parent, root, col=0, row=0):
         Frame.__init__(self, parent)
-        
+
         # define names/labels for buttons + listboxes
-        self.button_names = [['add','remove','clear_all'], 
-                             ['analyze', 'save_sum','save_ts']]
+        self.button_names = [['add', 'remove', 'clear_all'],
+                             ['analyze', 'save_sum', 'save_ts']]
         self.button_labels = [['Add Channel(s) to Batch', 'Remove Selected	',
-                               'Clear All'], 
+                               'Clear All'],
                               ['Plot Channel Analysis', 'Save Channel Summary',
                                'Save Time Series']]
-                               
+
         # generate basic panel layout                      
-        buildBatchPanel(self, self.button_names, self.button_labels, 
-                        tboxFlag=True,  row=row, col=col)
-        
+        buildBatchPanel(self, self.button_names, self.button_labels,
+                        tboxFlag=True, row=row, col=col)
+
         # assign button callbacks
         self.buttons['add']['command'] = lambda: self.add_items(root)
         self.buttons['remove']['command'] = self.rm_items
@@ -573,14 +620,13 @@ class BatchChannelFrame(Frame):
         self.buttons['analyze']['command'] = lambda: self.plot_batch(root)
         self.buttons['save_sum']['command'] = lambda: self.save_batch(root)
         self.buttons['save_ts']['command'] = lambda: self.save_time_series(root)
-        
+
         # switch buttons to 'disabled' until something is selected
         self.buttons['remove']['state'] = DISABLED
 
-        
         # bind listbox
         self.listbox.bind('<<ListboxSelect>>', self.on_select)
-        
+
     # -----------------------------------------------------
     # Callback functions
     # -----------------------------------------------------
@@ -590,29 +636,29 @@ class BatchChannelFrame(Frame):
             self.buttons['remove']['state'] = NORMAL
         else:
             self.buttons['remove']['state'] = DISABLED
-    
+
     # --------------------------------------------------------
     # move channel data from channel listbox -> channel batch
     def add_items(self, root):
         batch_list = self.listbox.get(0, END)
-        for_batch = Expresso.fetch_data_for_batch(root,'channels')
+        for_batch = Expresso.fetch_data_for_batch(root, 'channels')
         for_batch = sorted(for_batch, reverse=False)
         for channel in tuple(for_batch):
             if channel not in batch_list:
                 self.listbox.insert(END, channel)
-                
+
     # --------------------------------------------------------
     # remove selected channel data batch listbox
     def rm_items(self):
         selected = sorted(self.listbox.curselection(), reverse=True)
         for item in selected:
             self.listbox.delete(item)
-    
+
     # --------------------------------------------------------
     # clear all data from batch listbox
     def clear_all(self):
         self.listbox.delete(0, END)
-    
+
     # --------------------------------------------------------
     # plot summary of batch channel data
     def plot_batch(self, root):
@@ -622,7 +668,7 @@ class BatchChannelFrame(Frame):
             tkMessageBox.showinfo(title='Error',
                                   message='Add data to batch box for batch analysis')
             return
-            
+
         # get time info
         try:
             tmin = int(self.t_entries['t_min'].get())
@@ -633,13 +679,8 @@ class BatchChannelFrame(Frame):
                                   message='Set time range and bin size')
             return
 
-        (self.bouts_list, self.name_list, self.volumes_list, self.consumption_per_fly,
-         self.duration_per_fly, self.latency_per_fly, self.fig_raster,
-         self.fig_hist) = batch_bout_analysis(batch_list, tmin, tmax, tbin,
-                                              plotFlag=True, 
-                                              combAnalysisFlag=comb_analysis_flag)
-
-        
+        batch_bout_analysis(batch_list, tmin, tmax, tbin, plotFlag=True, combAnalysisFlag=comb_analysis_flag)
+        # (_, _, _, _, _, _, self.fig_raster, self.fig_hist) =
     # --------------------------------------------------------
     # save summary of batch channel analysis
     def save_batch(self, root):
@@ -666,8 +707,9 @@ class BatchChannelFrame(Frame):
             save_filename = tkFileDialog.asksaveasfilename(defaultextension=".xlsx")
             save_batch_xlsx(save_filename, bouts_list, name_list,
                             volumes_list, consumption, dur, latency)
-            
+
             print('Completed saving {}'.format(save_filename))
+
     # --------------------------------------------------------
     # save times series analyses of batch channel data
     def save_time_series(self, root):
@@ -710,47 +752,49 @@ class BatchChannelFrame(Frame):
 
                 out_path.close()
 
+
 # =============================================================================
 """ UI frame containing batch analysis for just video data  """
-# =============================================================================              
+
+
+# =============================================================================
 class BatchVidFrame(Frame):
     def __init__(self, parent, root, col=0, row=0):
         Frame.__init__(self, parent)
-        
+
         # define names/labels for buttons + listboxes
-        self.button_names = [['add','remove','clear_all'], 
-                             ['analyze', 'save_sum','save_ts'],
+        self.button_names = [['add', 'remove', 'clear_all'],
+                             ['analyze', 'save_sum', 'save_ts'],
                              ['plot_heatmap', 'plot_cum_dist']]
-        self.button_labels = [['Add Video(s) to Batch', 
+        self.button_labels = [['Add Video(s) to Batch',
                                'Remove Selected',
-                               'Clear All'], 
-                              ['Analyze/Save Video(s)', 
-                              'Save Video Batch Summary',
-                              'Save Video Time Series'],
-                              ['Plot Heatmap', 
+                               'Clear All'],
+                              ['Analyze/Save Video(s)',
+                               'Save Video Batch Summary',
+                               'Save Video Time Series'],
+                              ['Plot Heatmap',
                                'Plot Cumulative Distance']]
-                               
+
         # generate basic panel layout                      
-        buildBatchPanel(self, self.button_names, self.button_labels, 
-                        tboxFlag=False,  row=row, col=col)
-        
+        buildBatchPanel(self, self.button_names, self.button_labels,
+                        tboxFlag=False, row=row, col=col)
+
         # assign button callbacks
         self.buttons['add']['command'] = lambda: self.add_items(root)
         self.buttons['remove']['command'] = self.rm_items
         self.buttons['clear_all']['command'] = self.clear_all
-        self.buttons['analyze']['command'] =self.analyze_batch
-        self.buttons['save_sum']['command'] =  self.save_batch
+        self.buttons['analyze']['command'] = self.analyze_batch
+        self.buttons['save_sum']['command'] = self.save_batch
         self.buttons['save_ts']['command'] = self.save_time_series
         self.buttons['plot_heatmap']['command'] = self.plot_heatmap_batch
         self.buttons['plot_cum_dist']['command'] = self.plot_cum_dist_batch
-        
+
         # switch buttons to 'disabled' until something is selected
         self.buttons['remove']['state'] = DISABLED
 
-        
         # bind listbox
         self.listbox.bind('<<ListboxSelect>>', self.on_select)
-        
+
     # -----------------------------------------------------
     # Callback functions
     # -----------------------------------------------------
@@ -765,19 +809,19 @@ class BatchVidFrame(Frame):
     # move video data from video listbox -> video batch
     def add_items(self, root):
         batch_list = self.listbox.get(0, END)
-        for_batch = Expresso.fetch_data_for_batch(root,'videos')
+        for_batch = Expresso.fetch_data_for_batch(root, 'videos')
         for_batch = sorted(for_batch, reverse=False)
         for vid in tuple(for_batch):
             if vid not in batch_list:
                 self.listbox.insert(END, vid)
-                
+
     # --------------------------------------------------------
     # remove selected video data batch listbox
     def rm_items(self):
         selected = sorted(self.listbox.curselection(), reverse=True)
         for item in selected:
             self.listbox.delete(item)
-            
+
     # --------------------------------------------------------
     # clear all entries from batch video listbox
     def clear_all(self):
@@ -795,10 +839,8 @@ class BatchVidFrame(Frame):
             for vid_file in batch_list:
                 file_path, filename = os.path.split(vid_file)
                 try:
-                    visual_expresso_main(file_path, filename,
-                                         DEBUG_BG_FLAG=False, DEBUG_CM_FLAG=False,
-                                         SAVE_DATA_FLAG=True, ELLIPSE_FIT_FLAG=False,
-                                         PARAMS=trackingParams)
+                    visual_expresso_tracking_main(file_path, filename, DEBUG_BG_FLAG=False, DEBUG_CM_FLAG=False,
+                                                  SAVE_DATA_FLAG=True, ELLIPSE_FIT_FLAG=False, PARAMS=trackingParams)
                     filename_prefix = os.path.splitext(filename)[0]
                     track_filename = filename_prefix + "_TRACKING.hdf5"
                     process_visual_expresso(file_path, track_filename,
@@ -808,7 +850,7 @@ class BatchVidFrame(Frame):
                     print('Error:')
                     print(e)
         self.vid_file_list = batch_list
-    
+
     # --------------------------------------------------------------------
     # save summary of all videos in batch listbox
     def save_batch(self):
@@ -818,9 +860,8 @@ class BatchVidFrame(Frame):
                                   message='Add videos to batch box for batch analysis')
             return
         else:
-            xlsx_filename = tkFileDialog.asksaveasfilename(initialdir=sys.path[0],
-                                                          defaultextension=".xlsx",
-                                                          title='Select save filename')
+            xlsx_filename = tkFileDialog.asksaveasfilename(defaultextension=".xlsx",
+                                                           title='Select save filename')
             save_vid_summary(batch_list, xlsx_filename)
 
     # --------------------------------------------------------------------
@@ -844,7 +885,7 @@ class BatchVidFrame(Frame):
             return
         else:
             batch_plot_cum_dist(batch_list)
-    
+
     # --------------------------------------------------------------------
     # plot heatmap for all videos in batch listbox
     def plot_heatmap_batch(self):
@@ -859,29 +900,31 @@ class BatchVidFrame(Frame):
 
 # =============================================================================
 """ UI frame containing batch analysis for combined feeding and video data  """
+
+
 # =============================================================================
 class BatchCombinedFrame(Frame):
     def __init__(self, parent, root, col=0, row=0):
         Frame.__init__(self, parent)
 
         # define names/labels for buttons + listboxes
-        self.button_names = [['add','remove','clear_all'], 
-                             ['analyze', 'save_sum','save_ts'],
-                             ['comb_data','plot_heatmap', 'plot_cum_dist']]
-        self.button_labels = [['Add Data to Batch', 
+        self.button_names = [['add', 'remove', 'clear_all'],
+                             ['analyze', 'save_sum', 'save_ts'],
+                             ['comb_data', 'plot_heatmap', 'plot_cum_dist']]
+        self.button_labels = [['Add Data to Batch',
                                'Remove Selected',
-                               'Clear All'], 
-                              ['Analyze/Save Data', 
-                              'Save Combined Summary',
-                              'Save Time Series'],
+                               'Clear All'],
+                              ['Analyze/Save Data',
+                               'Save Combined Summary',
+                               'Save Time Series'],
                               ['Combine Data Types',
-                              'Plot Heatmap', 
+                               'Plot Heatmap',
                                'Plot Cumulative Distance']]
-                               
+
         # generate basic panel layout                      
-        buildBatchPanel(self, self.button_names, self.button_labels, 
-                        tboxFlag=True,  row=row, col=col)
-        
+        buildBatchPanel(self, self.button_names, self.button_labels,
+                        tboxFlag=True, row=row, col=col)
+
         # assign button callbacks
         self.buttons['add']['command'] = lambda: self.add_items(root)
         self.buttons['remove']['command'] = self.rm_items
@@ -892,14 +935,13 @@ class BatchCombinedFrame(Frame):
         self.buttons['comb_data']['command'] = self.comb_data_batch
         self.buttons['plot_heatmap']['command'] = self.plot_heatmap_batch
         self.buttons['plot_cum_dist']['command'] = self.plot_cum_dist_batch
-        
+
         # switch buttons to 'disabled' until something is selected
         self.buttons['remove']['state'] = DISABLED
 
-        
         # bind listbox
         self.listbox.bind('<<ListboxSelect>>', self.on_select)
-        
+
     # -----------------------------------------------------
     # Callback functions
     # -----------------------------------------------------
@@ -909,39 +951,39 @@ class BatchCombinedFrame(Frame):
             self.buttons['remove']['state'] = NORMAL
         else:
             self.buttons['remove']['state'] = DISABLED
-            
+
     # --------------------------------------------------------
     # move data (video or channel) -> combined batch
     def add_items(self, root):
         batch_list = self.listbox.get(0, END)
         # grab selections from both video and channel listboxes
-        for_batch_ch = Expresso.fetch_data_for_batch(root,'channels',
-                                                   errorFlag=False)
-        for_batch_vid = Expresso.fetch_data_for_batch(root,'videos',
-                                                   errorFlag=False)
-        
+        for_batch_ch = Expresso.fetch_data_for_batch(root, 'channels',
+                                                     errorFlag=False)
+        for_batch_vid = Expresso.fetch_data_for_batch(root, 'videos',
+                                                      errorFlag=False)
+
         # convert both filetypes to common format
         ch_ent_basic = [channel2basic(c_fn) for c_fn in for_batch_ch]
         vid_ent_basic = [vid2basic(v_fn) for v_fn in for_batch_vid]
-        
+
         # combine lists and remove duplicates
         union_set = set.union(set(vid_ent_basic), set(ch_ent_basic))
         union_list = list(union_set)
         for_batch = union_list
-        
+
         # sort final list
         for_batch = sorted(for_batch, reverse=False)
         for ent in tuple(for_batch):
             if ent not in batch_list:
                 self.listbox.insert(END, ent)
-                
+
     # --------------------------------------------------------
     # remove selected data from combined batch listbox
     def rm_items(self):
         selected = sorted(self.listbox.curselection(), reverse=True)
         for item in selected:
             self.listbox.delete(item)
-    
+
     # --------------------------------------------------------
     # clear all data from combined batch listbox
     def clear_all(self):
@@ -961,10 +1003,10 @@ class BatchCombinedFrame(Frame):
                 # perform tracking analysis
                 file_path, filename_no_ext = os.path.split(data_file)
                 vid_filename = filename_no_ext + '.avi'
-                visual_expresso_main(file_path, vid_filename,
-                                     DEBUG_BG_FLAG=False, DEBUG_CM_FLAG=False,
-                                     SAVE_DATA_FLAG=True, ELLIPSE_FIT_FLAG=False,
-                                     PARAMS=trackingParams)
+                visual_expresso_tracking_main(file_path, vid_filename,
+                                              DEBUG_BG_FLAG=False, DEBUG_CM_FLAG=False,
+                                              SAVE_DATA_FLAG=True, ELLIPSE_FIT_FLAG=False,
+                                              PARAMS=trackingParams)
                 filename_prefix = os.path.splitext(vid_filename)[0]
                 track_filename = filename_prefix + "_TRACKING.hdf5"
                 flyTrackData = process_visual_expresso(file_path, track_filename,
@@ -986,7 +1028,7 @@ class BatchCombinedFrame(Frame):
 
         self.comb_file_list = batch_list
 
-#    
+    #
     # -----------------------------------------------------
     # save batch video summary
     # -----------------------------------------------------
@@ -997,12 +1039,15 @@ class BatchCombinedFrame(Frame):
                                   message='Add data to batch box for batch analysis')
             return
         else:
-            # save video summary
-            xlsx_filename = tkFileDialog.asksaveasfilename(initialdir=sys.path[0],
-                            defaultextension=".xlsx",
-                            title='Select save filename for COMBINED summary')
-            #batch_list_vid = [basic2vid(ent) for ent in batch_list]
+            # save video summary (XLSX)
+            xlsx_filename = tkFileDialog.asksaveasfilename(defaultextension=".xlsx",
+                                                           title='Select save filename for COMBINED summary')
             save_comb_summary(batch_list, xlsx_filename)
+
+            # also save to hdf5
+            save_filename = os.path.splitext(xlsx_filename)[0]
+            hdf5_filename = save_filename + '.hdf5'
+            save_comb_summary_hdf5(batch_list, hdf5_filename)
 
     # ---------------------------------------------------------------------
     # save channel and video data as one csv file (at each time point)
@@ -1016,10 +1061,10 @@ class BatchCombinedFrame(Frame):
         else:
             data_suffix = '_COMBINED_DATA.hdf5'
             data_filenames = [ent + data_suffix for ent in batch_list]
-            initdir, _ = os.path.split(data_filenames[0]) 
+            initdir, _ = os.path.split(data_filenames[0])
             savedir = tkFileDialog.askdirectory(initialdir=initdir)
             save_comb_time_series(data_filenames, savedir)
-    
+
     # ---------------------------------------------------------------------
     # for each list element, combine channel and video data into one file
     # ---------------------------------------------------------------------
@@ -1055,6 +1100,7 @@ class BatchCombinedFrame(Frame):
                                                         channel_t, frames, bouts,
                                                         volumes, flyTrackData)
                 flyCombinedData_to_hdf5(flyCombinedData)
+
     # ---------------------------------------------------------------------
     # plot distance traveled aligned to meal bout
     # ---------------------------------------------------------------------
@@ -1066,7 +1112,7 @@ class BatchCombinedFrame(Frame):
             return
         else:
             fig = plot_bout_aligned_var(batch_list, var='dist_mag')
-    
+
     # ---------------------------------------------------------------------
     # plot velocity aligned to meal bout
     # ---------------------------------------------------------------------
@@ -1078,13 +1124,13 @@ class BatchCombinedFrame(Frame):
             return
         else:
             fig = plot_bout_aligned_var(batch_list, var='vel_mag')
-    
+
     # ---------------------------------------------------------------------
     # plot channel (feeding) data summary
     # ---------------------------------------------------------------------
     def plot_channel_batch(self):
         batch_list = self.listbox.get(0, END)
-        #comb_analysis_flag = root.comb_analysis_flag.get()
+        # comb_analysis_flag = root.comb_analysis_flag.get()
         if len(batch_list) < 1:
             tkMessageBox.showinfo(title='Error',
                                   message='Add data to batch box for batch analysis')
@@ -1106,7 +1152,7 @@ class BatchCombinedFrame(Frame):
              duration_per_fly, latency_per_fly, fig_raster, fig_hist) = \
                 batch_bout_analysis(batch_list_ch, tmin, tmax, tbin, plotFlag=True,
                                     combAnalysisFlag=True)
-                                    
+
     # ---------------------------------------------------------------------
     # plot cumulative distance
     # ---------------------------------------------------------------------                               
@@ -1121,15 +1167,15 @@ class BatchCombinedFrame(Frame):
             try:
                 tmin = int(self.tmin_entry.get())
                 tmax = int(self.tmax_entry.get())
-                #tbin = int(self.tbin_entry.get())
+                # tbin = int(self.tbin_entry.get())
             except:
                 tkMessageBox.showinfo(title='Error',
                                       message='Set time range and bin size')
                 return
             # if we have time range info, make plots    
             batch_list_vid = [basic2vid(ent) for ent in batch_list]
-            batch_plot_cum_dist(batch_list_vid,t_lim=[tmin,tmax])
-            
+            batch_plot_cum_dist(batch_list_vid, t_lim=[tmin, tmax])
+
     # ---------------------------------------------------------------------
     # plot position heatmap
     # ---------------------------------------------------------------------   
@@ -1144,15 +1190,16 @@ class BatchCombinedFrame(Frame):
             try:
                 tmin = int(self.tmin_entry.get())
                 tmax = int(self.tmax_entry.get())
-                #tbin = int(self.tbin_entry.get())
+                # tbin = int(self.tbin_entry.get())
             except:
                 tkMessageBox.showinfo(title='Error',
                                       message='Set time range and bin size')
                 return
             # if we have time range info, make plots
             batch_list_vid = [basic2vid(ent) for ent in batch_list]
-            batch_plot_heatmap(batch_list_vid, t_lim=[tmin,tmax])
-            
+            batch_plot_heatmap(batch_list_vid, t_lim=[tmin, tmax])
+
+
 # =============================================================================
 # Main class for GUI
 # =============================================================================
@@ -1167,7 +1214,6 @@ class Expresso:
         # ???
 
         # initialize important fields for retaining where we are in data space
-        
 
         datapath = []
         self.datadir_curr = datapath
@@ -1187,26 +1233,26 @@ class Expresso:
         # --------------------------------
         # debugging boolean variables
         # --------------------------------
-        self.debug_tracking = IntVar()
-        self.debug_tracking.set(0)
+        self.debug_tracking = BooleanVar()
+        self.debug_tracking.set(False)
 
-        self.debug_bout = IntVar()
-        self.debug_bout.set(0)
+        self.debug_bout = BooleanVar()
+        self.debug_bout.set(False)
 
-        self.save_all_plots = IntVar()
-        self.save_all_plots.set(0)
+        self.save_all_plots = BooleanVar()
+        self.save_all_plots.set(False)
 
         # --------------------------------------
         # combined analysis boolean variable(s)
         # --------------------------------------
-        self.comb_analysis_flag = IntVar()
-        self.comb_analysis_flag.set(0)
-        
+        self.comb_analysis_flag = BooleanVar()
+        self.comb_analysis_flag.set(True)
+
         # --------------------------------------
         # run gui presets. may be unecessary
         # --------------------------------------
         self.init_gui()
-        
+
         # ----------------------------------------------
         # initialize instances of frames defined above
         # ----------------------------------------------
@@ -1217,23 +1263,21 @@ class Expresso:
         self.channeldata_frame = ChannelDataFrame(self, col=0, row=3)
         self.viddata_frame = VideoDataFrame(self, col=0, row=4)
 
-
         # ttk notebook for batch analysis:
-        nb_r = 1 #1 
-        nb_c = 3 #3 
-        nb_rspan = 4 
+        nb_r = 1  # 1
+        nb_c = 3  # 3
+        nb_rspan = 4
         nb_cspan = 3
-        
+
         # configure weights for notebook grid area
-        for rowCurr in range(nb_r, nb_r+nb_rspan):   
+        for rowCurr in range(nb_r, nb_r + nb_rspan):
             Grid.rowconfigure(self.master, rowCurr, weight=1)
-        for colCurr in range(nb_c, nb_c+nb_cspan):   
+        for colCurr in range(nb_c, nb_c + nb_cspan):
             Grid.columnconfigure(self.master, colCurr, weight=1)
-            
+
         self.batch_nb = Notebook(self.master)
-        self.batch_nb.grid(row=nb_r, column=nb_c, rowspan=nb_rspan, 
+        self.batch_nb.grid(row=nb_r, column=nb_c, rowspan=nb_rspan,
                            columnspan=nb_cspan, sticky=NSEW)
-        
 
         # batch channel analysis
         self.batchdata_frame = BatchChannelFrame(self.batch_nb, self)
@@ -1251,26 +1295,32 @@ class Expresso:
         # get path to image (should be in src directory)
         self.img_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                      'expresso_alpha.gif')
-                                     
+
         # configure weights for image grid area
         Grid.rowconfigure(self.master, 0, weight=1)
-        #Grid.columnconfigure(self.master,)
+        # Grid.columnconfigure(self.master,)
         # im = Image.open(im_path)
         # ph = ImageTk.PhotoImage(im)
         self.img = PhotoImage(file=self.img_path, master=self.master)
         self.im_label = Label(self.master, image=self.img,
                               background=guiParams['bgcolor'])
         self.im_label.img = self.img
-        self.im_label.grid(column=3, row=0, columnspan=nb_cspan, padx=10, 
+        self.im_label.grid(column=3, row=0, columnspan=nb_cspan, padx=10,
                            pady=2, sticky=NSEW)
-        
+
         # ----------------------------------------------------
         # populate directory list with initial directories
         for init_dir in initDirectories:
             if os.path.exists(init_dir) and os.path.isdir(init_dir):
                 init_dir_norm = os.path.normpath(init_dir)
                 self.dirframe.listbox.insert(END, init_dir_norm)
-        
+
+        # -----------------------------------------------------
+        # define variable to store info on user-searched paths
+        # (want to keep it updated so we don't always default to some random spot)
+        # start_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        # self.search_path = start_path
+
         # -----------------------------
         # define quit command
         self.master.protocol("WM_DELETE_WINDOW", self.on_quit)
@@ -1281,60 +1331,63 @@ class Expresso:
         if tkMessageBox.askokcancel("Quit", "Do you want to quit?"):
             self.master.destroy()
             self.master.quit()
-            
+
     # ===================================================================
     def on_open_crop_gui(self):
         """Exits program."""
-        if tkMessageBox.askokcancel("Open crop and save GUI", 
+        if tkMessageBox.askokcancel("Open crop and save GUI",
                                     "Do you want to quit and open cropping GUI?"):
             self.master.destroy()
-            self.master.quit()   
-             # run script
-            os.system("python crop_and_save_gui.py") 
-     # ===================================================================
+            self.master.quit()
+            # run script
+            os.system("python crop_and_save_gui.py")
+
+    # ===================================================================
     def on_open_pp_gui(self):
         """Exits program."""
         if tkMessageBox.askokcancel("Open post-processing GUI",
                                     "Do you want to quit and open post processing GUI?"):
             self.master.destroy()
-            self.master.quit()   
-             # run script
-            os.system("python post_processing_gui.py") 
+            self.master.quit()
+            # run script
+            os.system("python post_processing_gui.py")
+
     # ===================================================================
     def toggle_track_debug(self):
         """Turns on or off the tracking debug flags"""
         curr_val = self.debug_tracking.get()
-        if curr_val == True:
-            self.debug_tracking.set(0)
-        elif curr_val == False:
-            self.debug_tracking.set(1)
+        if curr_val:
+            print('In tracking debug mode')
+        else:
+            print('NOT in tracking debug mode')
+
 
     # ===================================================================
     def toggle_bout_debug(self):
         """Turns on or off the bout debug flags"""
         curr_val = self.debug_bout.get()
-        if curr_val == True:
-            self.debug_bout.set(0)
-        elif curr_val == False:
-            self.debug_bout.set(1)
+        if curr_val:
+            print('In feeding bout detection debug mode')
+        else:
+            print('NOT in feeding bout detection debug mode')
 
     # ===================================================================
     def toggle_save_all(self):
         """Turns on or off the save plots flags"""
         curr_val = self.save_all_plots.get()
-        if curr_val == True:
-            self.save_all_plots.set(0)
-        elif curr_val == False:
-            self.save_all_plots.set(1)
+        if curr_val:
+            print('In save all plots mode')
+        else:
+            print('NOT in save all plots mode')
 
     # ===================================================================
     def toggle_comb_analysis(self):
         """Turns on or off the synchronized selection flags"""
         curr_val = self.comb_analysis_flag.get()
-        if curr_val == True:
-            self.comb_analysis_flag.set(0)
-        elif curr_val == False:
-            self.comb_analysis_flag.set(1)
+        if curr_val:
+            print('Using tracking data to validate meal bout detection')
+        else:
+            print('NOT using tracking data to validate meal bout detection')
 
     # ===================================================================
     def sync_listboxes_intersect(self):
@@ -1455,9 +1508,9 @@ class Expresso:
 
         # file menu
         self.master.menu_file = Menu(self.master.menubar)
-        self.master.menu_file.add_command(label='Open PRE-process GUI', 
+        self.master.menu_file.add_command(label='Open PRE-process GUI',
                                           command=self.on_open_crop_gui)
-        self.master.menu_file.add_command(label='Open POST-process GUI', 
+        self.master.menu_file.add_command(label='Open POST-process GUI',
                                           command=self.on_open_pp_gui)
         self.master.menu_file.add_command(label='Exit', command=self.on_quit)
 
@@ -1503,14 +1556,12 @@ class Expresso:
             be scanned by the application. """
 
         # get user specified directory and normalize path
-        start_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        # seldir = tkFileDialog.askdirectory(initialdir=sys.path[0])
-        seldir = tkFileDialog.askdirectory(initialdir=start_path)
+        seldir = tkFileDialog.askdirectory()
         if seldir:
             seldir = os.path.abspath(seldir)
             self.datadir_curr = seldir
             return seldir
-    
+
     # ===================================================================
     # perform checks to make sure a given file in search directory is valid
     # (i.e. should be added to appropriate listbox). Also returns standardized 
@@ -1520,58 +1571,59 @@ class Expresso:
         # tests if selected file type is channel data
         if (fileType == 'channel'):
             valid_ext = (".hdf5")
-            invalid_end = ('VID_INFO.hdf5', 'TRACKING.hdf5', 
+            invalid_end = ('VID_INFO.hdf5', 'TRACKING.hdf5',
                            'TRACKING_PROCESSED.hdf5', 'COMBINED_DATA.hdf5')
             is_valid = f.endswith(valid_ext) and not f.endswith(invalid_end)
-            
+
             # for channel data files, format should already be good
-            f_out = f 
-        
+            f_out = f
+
         # ----------------------------------------------
         # tests if selected data is a video file
         elif (fileType == 'video'):
-            valid_ext = (".avi", ".mov", ".mp4", ".mpg", ".mpeg", ".rm", 
+            valid_ext = (".avi", ".mov", ".mp4", ".mpg", ".mpeg", ".rm",
                          ".swf", ".vob", ".wmv")
             processed_sfx = ("_TRACKING_PROCESSED.hdf5", "_COMBINED_DATA.hdf5")
-            is_valid=f.endswith(valid_ext) and ('channel' in f) and ('XP' in f)
+            is_valid = f.endswith(valid_ext) and ('channel' in f) and ('XP' in f)
             processed_chk = any(sfx in f for sfx in processed_sfx)
             is_valid = is_valid or processed_chk
-            
+
             # since we're allowing analyzed hdf5 files as well, need to make 
             # sure file formats are all the same
             if is_valid and processed_chk:
                 f_split = f.split('_')
                 f_out = '_'.join(f_split[:-2])
-                f_out = f_out + ".avi" 
+                f_out = f_out + ".avi"
             else:
-                f_out = f 
+                f_out = f
         # -------------------------------------------------------------------
         # file should be either video or channel -- otherwise return nothing     
         else:
             print('Error: invalid fileType')
             is_valid = False
             f_out = None
-        
-        return (is_valid, f_out)
+
+        return is_valid, f_out
+
     # ===================================================================
     @staticmethod
     def scan_dirs(self, fileType):
         # initialize list of files to send to file listbox
         files = []
-        
+
         # current directory listbox contents
         temp_dirlist = list(self.dirframe.listbox.get(0, END))
         # selected directories
-        selected_ind = sorted(self.dirframe.listbox.curselection(), 
+        selected_ind = sorted(self.dirframe.listbox.curselection(),
                               reverse=False)
-                              
+
         # throw exception if no directory is selected
         if len(selected_ind) < 1:
             tkMessageBox.showinfo(title='Error',
-                                  message='Please select directory' + 
-                                  'from which to grab hdf5 files')
+                                  message='Please select directory' +
+                                          'from which to grab hdf5 files')
             return files
-            
+
         # search each selected directory and add valid files to list
         for ind in selected_ind:
             temp_dir = temp_dirlist[ind]
@@ -1581,19 +1633,19 @@ class Expresso:
                 # if valid, add file
                 if validFlag:
                     files.append(os.path.join(temp_dir, f_new))
-        
+
         # make sure we don't pull duplicates
         files = list(set(files))
-        
+
         # normalize paths to current OS
         files = [os.path.normpath(f) for f in files]
-        
+
         # sort files
         files.sort()
-        
+
         # save current directory to frame structure      
         self.datadir_curr = temp_dir
-        
+
         # return files to populate listbox or let user know if they don't exist
         if len(files) > 0:
             return files
@@ -1603,9 +1655,6 @@ class Expresso:
             files = []
             return files
 
-            
-
-   
     # ===================================================================
     @staticmethod
     def unpack_files(self):
@@ -1651,7 +1700,7 @@ class Expresso:
 
     # ===================================================================
     @staticmethod
-    def get_channel_data(self, channel_entry, DEBUG_FLAG=False, 
+    def get_channel_data(self, channel_entry, DEBUG_FLAG=False,
                          combFlagArg=False):
         filename, filekeyname, groupkeyname = channel_entry.split(', ', 2)
         comb_analysis_flag = self.comb_analysis_flag.get()
@@ -1683,18 +1732,18 @@ class Expresso:
     def fetch_data_for_batch(self, listboxSourceType, errorFlag=True):
         # initialize list for sending to batch frame
         for_batch = []
-        
+
         # choose appropriate box
         if (listboxSourceType == 'channels'):
-            listbox_source = self.channeldata_frame.listbox 
+            listbox_source = self.channeldata_frame.listbox
         elif (listboxSourceType == 'videos'):
-            listbox_source = self.viddata_frame.listbox 
+            listbox_source = self.viddata_frame.listbox
         else:
             print('Error: invalid source selection')
             return
-            
+
         selected_ind = listbox_source.curselection()
-        
+
         if errorFlag and (len(selected_ind) < 1):
             err_str = 'Please select {} to move to batch'.format(listboxSourceType)
             tkMessageBox.showinfo(title='Error', message=err_str)
@@ -1705,8 +1754,6 @@ class Expresso:
 
         return for_batch
 
-    
-
 
 # def main():
 #    root = Tk()
@@ -1714,9 +1761,9 @@ class Expresso:
 #    app = Expresso(root)
 #    root.mainloop()
 # root = Toplevel()
-#root.pack(fill="both", expand=True)
-#root.grid_rowconfigure(0, weight=1)
-    #root.grid_columnconfigure(0, weight=1)
+# root.pack(fill="both", expand=True)
+# root.grid_rowconfigure(0, weight=1)
+# root.grid_columnconfigure(0, weight=1)
 
 """ Run main loop """
 if __name__ == '__main__':
@@ -1727,5 +1774,3 @@ if __name__ == '__main__':
     Expresso(root)
     root.mainloop()
     # main()
-        
-        

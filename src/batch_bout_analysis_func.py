@@ -156,7 +156,10 @@ def batch_bout_analysis(channel_entry_list, tmin, tmax, tbin_size, plotFlag=Fals
         ax_raster.set_ylabel("Data File")
         ax_raster.set_title("Feeding Bouts")    
         fig_raster.set_tight_layout(True)
-        
+
+        # show raster
+        fig_raster.show()
+
         #NEED TO MAKE AXIS CORRESPOND TO TIME
         #x_tick_labels = t_global[]
             
@@ -170,7 +173,10 @@ def batch_bout_analysis(channel_entry_list, tmin, tmax, tbin_size, plotFlag=Fals
         ax_hist.set_xlabel("Time [s]")
         ax_hist.set_ylabel("Food consumed [nL]")
         ax_hist.set_title("Total Consumption Histogram")
-        
+
+        # show histogram plot
+        fig_hist.show()
+
         return (bouts_list, name_list, volumes_list, consumption_per_fly, 
                 duration_per_fly, latency_per_fly,fig_raster, fig_hist)
     else:
