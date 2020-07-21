@@ -5,9 +5,10 @@
 ### Expresso Hardware and Firmware ###
 
 EAT is designed to be used for analyzing data from Expresso behavioral assays. The resources listed below can be used to build the apparatus for Expresso experiments and collect data during Expresson experiments (probably need to update these):
-*[Open source plans for Expresso sensor banks](http://public.iorodeo.com/docs/expresso/hardware_design_files.html)
 
-*[Source code for Expresso data acquisition software](http://public.iorodeo.com/docs/expresso/device_software.html)
+* [Open source plans for Expresso sensor banks](http://public.iorodeo.com/docs/expresso/hardware_design_files.html)
+
+* [Source code for Expresso data acquisition software](http://public.iorodeo.com/docs/expresso/device_software.html)
 
 ### EAT Installation ###
 
