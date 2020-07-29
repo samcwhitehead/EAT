@@ -909,15 +909,16 @@ class BatchCombinedFrame(Frame):
 
         # define names/labels for buttons + listboxes
         self.button_names = [['add', 'remove', 'clear_all'],
-                             ['analyze', 'save_sum', 'save_ts'],
-                             ['comb_data', 'plot_heatmap', 'plot_cum_dist']]
+                             ['analyze', 'comb_data', 'save_sum', 'save_ts'],
+                             ['plot_channel', 'plot_heatmap', 'plot_cum_dist']]
         self.button_labels = [['Add Data to Batch',
                                'Remove Selected',
                                'Clear All'],
                               ['Analyze/Save Data',
+                               'Combine Data Types',
                                'Save Combined Summary',
                                'Save Time Series'],
-                              ['Combine Data Types',
+                              ['Plot Channel Analysis',
                                'Plot Heatmap',
                                'Plot Cumulative Distance']]
 
@@ -930,9 +931,10 @@ class BatchCombinedFrame(Frame):
         self.buttons['remove']['command'] = self.rm_items
         self.buttons['clear_all']['command'] = self.clear_all
         self.buttons['analyze']['command'] = lambda: self.analyze_batch(root)
+        self.buttons['comb_data']['command'] = self.comb_data_batch
         self.buttons['save_sum']['command'] = self.save_batch_comb
         self.buttons['save_ts']['command'] = self.save_time_series
-        self.buttons['comb_data']['command'] = self.comb_data_batch
+        self.buttons['plot_channel']['command'] = self.plot_channel_batch
         self.buttons['plot_heatmap']['command'] = self.plot_heatmap_batch
         self.buttons['plot_cum_dist']['command'] = self.plot_cum_dist_batch
 
@@ -1140,12 +1142,12 @@ class BatchCombinedFrame(Frame):
                 tmin = int(self.t_entries['t_min'].get())
                 tmax = int(self.t_entries['t_max'].get())
                 tbin = int(self.t_entries['t_bin'].get())
-            except:
-                tkMessageBox.showinfo(title='Error',
-                                      message='Set time range and bin size')
-                return
+            except (NameError, ValueError):
+               tkMessageBox.showinfo(title='Error',
+                                     message='Set time range and bin size')
+               return
 
-                # run and save feeding analysis (a little redundant)
+            # run and save feeding analysis (a little redundant)
             batch_list_ch = [basic2channel(ent) for ent in batch_list]
 
             (bouts_list, name_list, volumes_list, consumption_per_fly,

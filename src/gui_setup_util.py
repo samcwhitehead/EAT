@@ -160,8 +160,7 @@ def buildBatchPanel(frame, btn_names, btn_labels, tboxFlag=False, row=0, col=0,
     frame.vscroll.pack(side=RIGHT, fill=Y)
     
     # link listbox and scrollbars -- also back listbox
-    frame.listbox.config(xscrollcommand=frame.hscroll.set,
-                        yscrollcommand=frame.vscroll.set)
+    frame.listbox.config(xscrollcommand=frame.hscroll.set, yscrollcommand=frame.vscroll.set)
     frame.listbox.pack(side=TOP, fill=BOTH, expand=True)
 
     frame.hscroll.configure(orient=HORIZONTAL, command=frame.listbox.xview)
@@ -214,9 +213,9 @@ def buildBatchPanel(frame, btn_names, btn_labels, tboxFlag=False, row=0, col=0,
             Grid.rowconfigure(frame.button_frame, rowCurr, weight=2)
             
             # generate button and place in grid
-            b = Button(frame.button_frame, text= btn_labels[colCurr][rowCurr] )
+            b = Button(frame.button_frame, text=btn_labels[colCurr][rowCurr])
             b.grid(column=colCurr+2, row=rowCurr, padx=padx, pady=pady, 
-                   sticky=NSEW) #NSEW
+                   sticky=NSEW) # NSEW
         
             # store buttons in frame object
             frame.buttons[btn_names[colCurr][rowCurr]] = b
