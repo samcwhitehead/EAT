@@ -1170,7 +1170,7 @@ class BatchCombinedFrame(Frame):
                 tmin = int(self.t_entries['t_min'].get())
                 tmax = int(self.t_entries['t_max'].get())
                 # tbin = int(self.t_entries['t_bin'].get())
-            except:
+            except (NameError, ValueError):
                 tkMessageBox.showinfo(title='Error',
                                       message='Set time range and bin size')
                 return
@@ -1193,13 +1193,13 @@ class BatchCombinedFrame(Frame):
                 tmin = int(self.t_entries['t_min'].get())
                 tmax = int(self.t_entries['t_max'].get())
                 # tbin = int(self.t_entries['t_bin'].get())
-            except:
+            except (NameError, ValueError):
                 tkMessageBox.showinfo(title='Error',
                                       message='Set time range and bin size')
                 return
             # if we have time range info, make plots
             batch_list_vid = [basic2vid(ent) for ent in batch_list]
-            batch_plot_heatmap(batch_list_vid, t_lim=[tmin, tmax])
+            batch_plot_heatmap(batch_list_vid, t_lim=[tmin, tmax], SAVE_FLAG=False)
 
 
 # =============================================================================
