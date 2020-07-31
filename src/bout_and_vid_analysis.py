@@ -517,15 +517,112 @@ def get_dwell_time(bouts, channel_t, dist_mag, vid_t,
 
     return (dwell_times, censoring)
 
-
 # ------------------------------------------------------------------------------
-# function to plot feeding-bout-end aligned data
-def plot_bout_aligned_var(basic_entries, var='vel_mag', window=300,
-                          N_meals=4, figsize=(6, 10), saveFlag=False):
+# function to get data aligned to a meal
+def get_meal_aligned_data(h5_fn, var, window_left=0, window_right=300, meal_num=0):
+    # initialize output
+    data_aligned = None
+
+    # load data from hdf5 file
+    filepath, filename = os.path.split(h5_fn)
+    flyCombinedData = hdf5_to_flyCombinedData(filepath, filename)
+
+    # check if meal data exists in file. if so, read out and align to video time. otherwise return
+    if 'bouts' in flyCombinedData:
+        _, _, bouts_cam = interp_channel_time(flyCombinedData)
+    else:
+        print('No feeding data in {} -- skipping'.format(filename))
+        return
+
+    # check that this data file contains the specified meal (i.e. if we're looking for data aligned to 4th meal, check
+    # make sure that there are 4 meals in data file
+    # print(bouts_cam.shape)
+    N_meals = bouts_cam.shape[1]
+    if (N_meals < meal_num) or (N_meals < 1):
+        return
+
+    # check if selected var data exists in file. for most cases, var should be a key in the flyCombinedData dict. if
+    # it's one of a few other data types, we need to define it here. if neither are found, return
+    if var in flyCombinedData:
+        data_var = flyCombinedData[var]
+    elif var == 'dist_mag':
+        data_var = np.sqrt(flyCombinedData['xcm_smooth'] ** 2 + flyCombinedData['ycm_smooth'] ** 2)
+    else:
+        print('No {} data in {} -- skipping'.format(var, filename))
+        return
+
+    # get indices for time window around meal (distance from meal end time is specified by window_left and window_right)
+    meal_end = bouts_cam[1, meal_num]
+    idx1 = np.max([meal_end - window_left, 0])
+    idx2 = np.min([meal_end + window_right, len(data_var) - 1])
+
+    # get data for these indices
+    data_aligned = data_var[idx1:idx2]
+
+    # if variable is time, probably want to set meal end time as t = 0
+    if var == 't':
+        data_aligned = data_aligned - data_var[meal_end]
+
+    # return meal aligned data
+    return data_aligned
+
+# ---------------------------------------------------------------------------------------------
+# function to plot feeding-bout-end aligned data (old -- tries to group data, need to update)
+def plot_bout_aligned_var(basic_entries, varx='xcm_smooth', vary='ycm_smooth', window_left=0, window_right=300,
+                          meal_num=0, figsize=(6, 6), saveFlag=False):
+    # suffix for filename with both feeding and tracking data
     data_suffix = '_COMBINED_DATA.hdf5'
+
+    # define colormap for plot
+    #colors = plt.cm.Set1(range(len(basic_entries)))
+    plt.rcParams["axes.prop_cycle"] = plt.cycler("color", plt.cm.Set1.colors)
+
+    # intialize figure and axis
+    fig, ax = plt.subplots(1, 1, figsize=figsize)
+
+    # ----------------------------------------------------
+    # loop over data files
+    for ith, ent in enumerate(basic_entries):
+        # get full filename for current hdf5 analysis file, as well as file id
+        hdf5_filename = ent + data_suffix
+        ent_id = os.path.basename(ent)
+        # read out meal aligned varx and vary data
+        data_x = get_meal_aligned_data(hdf5_filename, varx, window_left=window_left, window_right=window_right,
+                                       meal_num=meal_num)
+        data_y = get_meal_aligned_data(hdf5_filename, vary, window_left=window_left, window_right=window_right,
+                                       meal_num=meal_num)
+
+        # make sure we got data for both x and y
+        if data_x is None or data_y is None:
+            print('Failed to load data for {} -- skipping'.format(hdf5_filename))
+            continue
+
+        # get current color for plot
+        #color_vec = colors[ith, :]
+
+        # plot data on current axes
+        ax.plot(data_x, data_y, '.-', label=ent_id, markersize=2, linewidth=0.75)
+
+    # --------------------------------------------------------------------
+    # axis properties (once plotting has finished)
+    plt.legend(loc='upper left', bbox_to_anchor=(1, 1.05),fontsize='x-small')
+    plt.tight_layout()
+
+    # show figure
+    fig.show()
+
+    return fig, ax
+# ---------------------------------------------------------------------------------------------
+# function to plot feeding-bout-end aligned data (old -- tries to group data, need to update)
+def plot_bout_aligned_var_old(basic_entries, var='vel_mag', window=300, N_meals=4, figsize=(6, 10), saveFlag=False):
+    # suffix for filename with both feeding and tracking data
+    data_suffix = '_COMBINED_DATA.hdf5'
+
+    # group data files based on their parent directory
     expt_idx, N_expt = group_expts_basic(basic_entries)
-    cmap_name_list = ['Reds', 'Blues', 'Greens', 'Purples', 'Oranges', 'YlOrBr', \
-                      'PuBu', 'YlOrRd', 'BuGn']
+
+    # get color maps for different experiment groupings
+    cmap_name_list = ['Reds', 'Blues', 'Greens', 'Purples', 'Oranges', 'YlOrBr', 'PuBu', 'YlOrRd', 'BuGn']
     cmap_mat = np.array([])
     for jth in np.arange(len(N_expt)):
         cmap_curr = cm.get_cmap(cmap_name_list[jth])
@@ -548,14 +645,7 @@ def plot_bout_aligned_var(basic_entries, var='vel_mag', window=300,
         filepath, filename = os.path.split(filename_full)
         flyCombinedData = hdf5_to_flyCombinedData(filepath, filename)
 
-        # get color for plot
-        #        expt_idx_curr = expt_idx[ith]
-        #        if expt_idx_curr != expt_idx_counter:
-        #            cc = 0
-        #            color_vec_curr = cmap_list[expt_idx_curr][cc]
-        #        else:
-        #            color_vec_curr = cmap_list[expt_idx_curr][cc]
-        #            cc += 1
+        # current color for plots
         color_vec_curr = cmap_mat[ith, :]
 
         # assign data and select variable to plot
@@ -564,8 +654,7 @@ def plot_bout_aligned_var(basic_entries, var='vel_mag', window=300,
         if var == 'vel_mag':
             var_curr = flyCombinedData[var]
         elif var == 'dist_mag':
-            var_curr = np.sqrt(flyCombinedData['xcm_smooth'] ** 2 + \
-                               flyCombinedData['ycm_smooth'] ** 2)
+            var_curr = np.sqrt(flyCombinedData['xcm_smooth'] ** 2 + flyCombinedData['ycm_smooth'] ** 2)
         else:
             print('do not have this option yet')
             return

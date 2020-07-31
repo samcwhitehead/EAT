@@ -910,7 +910,7 @@ class BatchCombinedFrame(Frame):
         # define names/labels for buttons + listboxes
         self.button_names = [['add', 'remove', 'clear_all'],
                              ['analyze', 'comb_data', 'save_sum', 'save_ts'],
-                             ['plot_channel', 'plot_heatmap', 'plot_cum_dist']]
+                             ['plot_channel', 'plot_heatmap', 'plot_cum_dist', 'plot_xy']]
         self.button_labels = [['Add Data to Batch',
                                'Remove Selected',
                                'Clear All'],
@@ -920,7 +920,8 @@ class BatchCombinedFrame(Frame):
                                'Save Time Series'],
                               ['Plot Channel Analysis',
                                'Plot Heatmap',
-                               'Plot Cumulative Distance']]
+                               'Plot Cumulative Distance',
+                               'Plot Post-Meal XY']]
 
         # generate basic panel layout                      
         buildBatchPanel(self, self.button_names, self.button_labels,
@@ -937,6 +938,7 @@ class BatchCombinedFrame(Frame):
         self.buttons['plot_channel']['command'] = self.plot_channel_batch
         self.buttons['plot_heatmap']['command'] = self.plot_heatmap_batch
         self.buttons['plot_cum_dist']['command'] = self.plot_cum_dist_batch
+        self.buttons['plot_xy']['command'] = self.plot_post_meal_xy_batch
 
         # switch buttons to 'disabled' until something is selected
         self.buttons['remove']['state'] = DISABLED
@@ -1103,29 +1105,29 @@ class BatchCombinedFrame(Frame):
                                                         volumes, flyTrackData)
                 flyCombinedData_to_hdf5(flyCombinedData)
 
-    # ---------------------------------------------------------------------
-    # plot distance traveled aligned to meal bout
-    # ---------------------------------------------------------------------
-    def plot_meal_aligned_dist(self):
-        batch_list = self.listbox.get(0, END)
-        if len(batch_list) < 1:
-            tkMessageBox.showinfo(title='Error',
-                                  message='Add data to batch box for batch analysis')
-            return
-        else:
-            fig = plot_bout_aligned_var(batch_list, var='dist_mag')
-
-    # ---------------------------------------------------------------------
-    # plot velocity aligned to meal bout
-    # ---------------------------------------------------------------------
-    def plot_meal_aligned_vel(self):
-        batch_list = self.listbox.get(0, END)
-        if len(batch_list) < 1:
-            tkMessageBox.showinfo(title='Error',
-                                  message='Add data to batch box for batch analysis')
-            return
-        else:
-            fig = plot_bout_aligned_var(batch_list, var='vel_mag')
+    # # ---------------------------------------------------------------------
+    # # plot distance traveled aligned to meal bout
+    # # ---------------------------------------------------------------------
+    # def plot_meal_aligned_dist(self):
+    #     batch_list = self.listbox.get(0, END)
+    #     if len(batch_list) < 1:
+    #         tkMessageBox.showinfo(title='Error',
+    #                               message='Add data to batch box for batch analysis')
+    #         return
+    #     else:
+    #         fig = plot_bout_aligned_var(batch_list, var='dist_mag')
+    #
+    # # ---------------------------------------------------------------------
+    # # plot velocity aligned to meal bout
+    # # ---------------------------------------------------------------------
+    # def plot_meal_aligned_vel(self):
+    #     batch_list = self.listbox.get(0, END)
+    #     if len(batch_list) < 1:
+    #         tkMessageBox.showinfo(title='Error',
+    #                               message='Add data to batch box for batch analysis')
+    #         return
+    #     else:
+    #         fig = plot_bout_aligned_var(batch_list, var='vel_mag')
 
     # ---------------------------------------------------------------------
     # plot channel (feeding) data summary
@@ -1201,7 +1203,19 @@ class BatchCombinedFrame(Frame):
             batch_list_vid = [basic2vid(ent) for ent in batch_list]
             batch_plot_heatmap(batch_list_vid, t_lim=[tmin, tmax], SAVE_FLAG=False)
 
-
+    # ---------------------------------------------------------------------
+    # plot XY trajectory for flies after first meal
+    # ---------------------------------------------------------------------
+    def plot_post_meal_xy_batch(self):
+        batch_list = self.listbox.get(0, END)
+        if len(batch_list) < 1:
+            tkMessageBox.showinfo(title='Error',
+                                  message='Add data to batch box for batch analysis')
+            return
+        else:
+            fig, ax = plot_bout_aligned_var(batch_list, varx='xcm_smooth', vary='ycm_smooth', window_left=0,
+                                            window_right=300, meal_num=0)
+            ax.axis('equal')
 # =============================================================================
 # Main class for GUI
 # =============================================================================
@@ -1701,9 +1715,8 @@ class Expresso:
         return groupKeyNames
 
     # ===================================================================
-    @staticmethod
-    def get_channel_data(self, channel_entry, DEBUG_FLAG=False,
-                         combFlagArg=False):
+    # @staticmethod
+    def get_channel_data(self, channel_entry, DEBUG_FLAG=False, combFlagArg=False):
         filename, filekeyname, groupkeyname = channel_entry.split(', ', 2)
         comb_analysis_flag = self.comb_analysis_flag.get()
         comb_analysis_flag = comb_analysis_flag or combFlagArg
