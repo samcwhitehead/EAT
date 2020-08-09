@@ -23,6 +23,7 @@ from statsmodels import robust
 # import progressbar
 
 from v_expresso_utils import interp_nans, hampel, interpolate_tracks, remove_nubs
+from load_hdf5_data import my_add_h5_dset, my_add_dset_to_dict, my_add_data_to_dict
 from v_expresso_gui_params import trackingParams
 
 
@@ -1029,28 +1030,19 @@ def visual_expresso_tracking_main(DATA_PATH, DATA_FILENAME, DEBUG_BG_FLAG=False,
             for xcm_curr, ycm_curr in zip(xcm_transformed[:cc], ycm_transformed[:cc]):
                 try:
                     if cap_tip_orientation == 'T':
-                        xcm_curr_transformed = int(xcm_curr / PIX2CM) + \
-                                               cap_tip[0] + int(ROI[0])
-                        ycm_curr_transformed = int(ycm_curr / PIX2CM) + \
-                                               cap_tip[1] + int(ROI[1])
+                        xcm_curr_transformed = int(xcm_curr / PIX2CM) + cap_tip[0] + int(ROI[0])
+                        ycm_curr_transformed = int(ycm_curr / PIX2CM) + cap_tip[1] + int(ROI[1])
                     elif cap_tip_orientation == 'B':
-                        xcm_curr_transformed = -1 * int(xcm_curr / PIX2CM) + \
-                                               cap_tip[0] + int(ROI[0])
-                        ycm_curr_transformed = -1 * int(ycm_curr / PIX2CM) + \
-                                               cap_tip[1] + int(ROI[1])
+                        xcm_curr_transformed = -1 * int(xcm_curr / PIX2CM) + cap_tip[0] + int(ROI[0])
+                        ycm_curr_transformed = -1 * int(ycm_curr / PIX2CM) + cap_tip[1] + int(ROI[1])
                     elif cap_tip_orientation == 'L':
-                        xcm_curr_transformed = int(ycm_curr / PIX2CM) + \
-                                               cap_tip[1] + int(ROI[1])
-                        ycm_curr_transformed = int(xcm_curr / PIX2CM) + \
-                                               cap_tip[0] + int(ROI[0])
+                        xcm_curr_transformed = int(ycm_curr / PIX2CM) + cap_tip[1] + int(ROI[1])
+                        ycm_curr_transformed = int(xcm_curr / PIX2CM) + cap_tip[0] + int(ROI[0])
                     else:
-                        xcm_curr_transformed = -1 * int(ycm_curr / PIX2CM) + \
-                                               cap_tip[1] + int(ROI[1])
-                        ycm_curr_transformed = -1 * int(xcm_curr / PIX2CM) + \
-                                               cap_tip[0] + int(ROI[0])
+                        xcm_curr_transformed = -1 * int(ycm_curr / PIX2CM) + cap_tip[1] + int(ROI[1])
+                        ycm_curr_transformed = -1 * int(xcm_curr / PIX2CM) + cap_tip[0] + int(ROI[0])
 
-                    cv2.circle(frame, (xcm_curr_transformed,
-                                       ycm_curr_transformed), 1, bgr_vec, -1)
+                    cv2.circle(frame, (xcm_curr_transformed, ycm_curr_transformed), 1, bgr_vec, -1)
                 except ValueError:
                     continue
 
@@ -1073,22 +1065,34 @@ def visual_expresso_tracking_main(DATA_PATH, DATA_FILENAME, DEBUG_BG_FLAG=False,
     # =======================================
     # save fly data in a dict object
     # =======================================
+    # start with file path and ID info
     flyTrackData = {'filepath': DATA_PATH,
                     'filename': DATA_FILENAME,
                     'xp_name': xp_name,
                     'channel_name': channel_name,
-                    'ROI': ROI,
-                    'cap_tip': cap_tip,
-                    'cap_tip_orientation': cap_tip_orientation,
-                    'PIX2CM': PIX2CM,
-                    'BG': BG,
                     'frames': frame_nums,
-                    't': t,
-                    'xcm': xcm_transformed,
-                    'ycm': ycm_transformed,
                     'trackingParams': PARAMS}
+
+    # then add image processing results
+    flyTrackData = my_add_data_to_dict(flyTrackData, 'ROI', ROI, units='pix', long_name='Region of Interest (pix)')
+    flyTrackData = my_add_data_to_dict(flyTrackData, 'cap_tip', cap_tip, units='pix')
+    flyTrackData = my_add_data_to_dict(flyTrackData, 'cap_tip_orientation', cap_tip_orientation)
+    flyTrackData = my_add_data_to_dict(flyTrackData, 'PIX2CM', PIX2CM, units='pix/cm', long_name='Pixels per cm')
+    flyTrackData = my_add_data_to_dict(flyTrackData, 'BG', BG)
+
+    # next add time and tracking info
+    flyTrackData = my_add_data_to_dict(flyTrackData, 't', t, units='s', long_name='Time (s)')
+    flyTrackData = my_add_data_to_dict(flyTrackData, 'xcm', xcm_transformed, units='cm',
+                                       long_name='Raw X Position (cm)')
+    flyTrackData = my_add_data_to_dict(flyTrackData, 'ycm', ycm_transformed, units='cm',
+                                       long_name='Raw Y Position (cm)')
+
     if ELLIPSE_FIT_FLAG:
-        flyTrackData['body_angle'] = body_angle
+        flyTrackData = my_add_data_to_dict(flyTrackData, 'body_angle', body_angle, units='deg',
+                                           long_name='Body Angle (deg)')
+    else:
+        flyTrackData = my_add_data_to_dict(flyTrackData, 'body_angle', np.nan, units='deg',
+                                           long_name='Body Angle (deg)')
 
     return flyTrackData
 
@@ -1150,12 +1154,11 @@ def filter_fly_trajectory(xcm, ycm, t, PARAMS=trackingParams, filt_order=4,
     xcm_filt = signal.filtfilt(b_filt, a_filt, xcm_interp(t))
     ycm_filt = signal.filtfilt(b_filt, a_filt, ycm_interp(t))
 
-    return (xcm_filt, ycm_filt, interp_idx)
+    return xcm_filt, ycm_filt, interp_idx
 
 
 # ------------------------------------------------------------------------------
-def process_visual_expresso(DATA_PATH, DATA_FILENAME, PARAMS=trackingParams,
-                            SAVE_DATA_FLAG=False, DEBUG_FLAG=False):
+def process_visual_expresso(DATA_PATH, DATA_FILENAME, PARAMS=trackingParams, SAVE_DATA_FLAG=False, DEBUG_FLAG=False):
     SAVE_PATH = DATA_PATH
     SMOOTHING_FACTOR = PARAMS['smoothing_factor']  # degree of smoothing for interpolant spline [0, Inf)
     MEDFILT_WINDOW = PARAMS['medfilt_window']  # window for median filter, in units of frame number
@@ -1257,59 +1260,74 @@ def process_visual_expresso(DATA_PATH, DATA_FILENAME, PARAMS=trackingParams,
         save_filename = os.path.join(SAVE_PATH, savename_prefix + "_PROCESSED.hdf5")
         # save_filename = filename
         with h5py.File(save_filename, 'w') as f:
-            f.create_dataset('Time/t', data=t)
-            f.create_dataset('Params/pix2cm', data=PIX2CM)
-            f.create_dataset('Params/trackingParams', data=str(PARAMS))
+            my_add_h5_dset(f, 'Time', 't', t, units='s', long_name='Time (s)')
+            my_add_h5_dset(f, 'Params', 'pix2cm', PIX2CM, units='pix/cm', long_name='Pixels per cm')
+            my_add_h5_dset(f, 'Params', 'trackingParams', str(PARAMS))
 
-            # body velocity data            
-            f.create_dataset('BodyVel/vel_x', data=xcm_vel)
-            f.create_dataset('BodyVel/vel_y', data=ycm_vel)
-            f.create_dataset('BodyVel/vel_mag', data=vel_mag)
-            f.create_dataset('BodyVel/moving_ind', data=moving_ind)
+            # body velocity data
+            my_add_h5_dset(f, 'BodyVel', 'vel_x', xcm_vel, units='cm/s', long_name='X Velocity (cm/s)')
+            my_add_h5_dset(f, 'BodyVel', 'vel_y', ycm_vel, units='cm/s', long_name='Y Velocity (cm/s)')
+            my_add_h5_dset(f, 'BodyVel', 'vel_mag', vel_mag, units='cm/s', long_name='Speed (cm/s)')
+            my_add_h5_dset(f, 'BodyVel', 'moving_ind', moving_ind, units='idx', long_name='Moving Index')
 
-            # body position data                 
-            f.create_dataset('BodyCM/xcm_smooth', data=xcm_smooth)
-            f.create_dataset('BodyCM/ycm_smooth', data=ycm_smooth)
-            f.create_dataset('BodyCM/cum_dist', data=cum_dist)
-            f.create_dataset('BodyCM/interp_idx', data=interp_idx)
+            # body position data
+            my_add_h5_dset(f, 'BodyCM', 'xcm_smooth', xcm_smooth, units='cm', long_name='X Position (cm)')
+            my_add_h5_dset(f, 'BodyCM', 'ycm_smooth', ycm_smooth, units='cm', long_name='Y Position (cm)')
+            my_add_h5_dset(f, 'BodyCM', 'cum_dist', cum_dist, units='cm', long_name='Cumulative Dist. (cm)')
+            try:
+                my_add_h5_dset(f, 'BodyCM', 'interp_idx', interp_idx, units='idx')
+            except TypeError:
+                my_add_h5_dset(f, 'BodyCM', 'interp_idx', np.nan, units='idx')
 
             # unprocessed data/information from tracking output file
-            f.create_dataset('BodyCM/xcm', data=xcm_curr)
-            f.create_dataset('BodyCM/ycm', data=ycm_curr)
-            f.create_dataset('ROI/roi', data=ROI)
-            f.create_dataset('BG/bg', data=BG)
-            f.create_dataset('CAP_TIP/cap_tip', data=cap_tip)
-            f.create_dataset('CAP_TIP/cap_tip_orientation',
-                             data=cap_tip_orientation)
+            my_add_h5_dset(f, 'BodyCM', 'xcm', xcm_curr, units='cm', long_name='Raw X Position (cm)')
+            my_add_h5_dset(f, 'BodyCM', 'ycm', ycm_curr, units='cm', long_name='Raw Y Position (cm)')
+            my_add_h5_dset(f, 'ROI', 'roi', ROI, units='pix', long_name='Region of Interest (pix)')
+            my_add_h5_dset(f, 'BG', 'bg', BG)
+            my_add_h5_dset(f, 'CAP_TIP', 'cap_tip', cap_tip, units='pix')
+            my_add_h5_dset(f, 'CAP_TIP', 'cap_tip_orientation', cap_tip_orientation)
+
             if body_angle:
-                f.create_dataset('BodyAngle/body_angle', data=body_angle)
+                my_add_h5_dset(f, 'BodyAngle', 'body_angle', body_angle, units='deg', long_name='Body Angle (deg)')
+            else:
+                my_add_h5_dset(f, 'BodyAngle', 'body_angle', np.nan, units='deg', long_name='Body Angle (deg)')
 
     # =======================================
-    # save fly data in a dict object
+    # return fly data in a dict object
     # =======================================
+    # start with path and ID info
     flyTrackData = {'filepath': DATA_PATH,
                     'filename': DATA_FILENAME,
                     'xp_name': xp_name,
                     'channel_name': channel_name,
-                    'ROI': ROI,
-                    'cap_tip': cap_tip,
-                    'cap_tip_orientation': cap_tip_orientation,
-                    'PIX2CM': PIX2CM,
-                    'BG': BG,
                     'frames': np.arange(len(t)),
-                    't': t,
-                    'xcm': xcm_curr,
-                    'ycm': ycm_curr,
-                    'xcm_smooth': xcm_smooth,
-                    'ycm_smooth': ycm_smooth,
-                    'interp_idx': interp_idx,
-                    'xcm_vel': xcm_vel,
-                    'ycm_vel': ycm_vel,
-                    'vel_mag': vel_mag,
-                    'cum_dist': cum_dist,
-                    'moving_ind': moving_ind,
-                    'body_angle': body_angle,
                     'trackingParams': PARAMS}
+
+    # then add image processing results
+    flyTrackData = my_add_data_to_dict(flyTrackData, 'ROI', ROI, units='pix', long_name='Region of Interest (pix)')
+    flyTrackData = my_add_data_to_dict(flyTrackData, 'cap_tip', cap_tip, units='pix')
+    flyTrackData = my_add_data_to_dict(flyTrackData, 'cap_tip_orientation', cap_tip_orientation)
+    flyTrackData = my_add_data_to_dict(flyTrackData, 'PIX2CM', PIX2CM, units='pix/cm', long_name='Pixels per cm')
+    flyTrackData = my_add_data_to_dict(flyTrackData, 'BG', BG)
+
+    # next add time and tracking info
+    flyTrackData = my_add_data_to_dict(flyTrackData, 't', t, units='s', long_name='Time (s)')
+    flyTrackData = my_add_data_to_dict(flyTrackData, 'xcm', xcm_curr, units='cm', long_name='Raw X Position (cm)')
+    flyTrackData = my_add_data_to_dict(flyTrackData, 'ycm', ycm_curr, units='cm', long_name='Raw Y Position (cm)')
+
+    flyTrackData = my_add_data_to_dict(flyTrackData, 'xcm_smooth', xcm_smooth, units='cm', long_name='X Position (cm)')
+    flyTrackData = my_add_data_to_dict(flyTrackData, 'ycm_smooth', ycm_smooth, units='cm', long_name='Y Position (cm)')
+    flyTrackData = my_add_data_to_dict(flyTrackData, 'cum_dist', cum_dist, units='cm',long_name='Cumulative Dist. (cm)')
+    flyTrackData = my_add_data_to_dict(flyTrackData, 'interp_idx', interp_idx, units='idx')
+
+    # (velocity)
+    flyTrackData = my_add_data_to_dict(flyTrackData, 'xcm_vel', xcm_vel, units='cm/s', long_name='X Velocity (cm/s)')
+    flyTrackData = my_add_data_to_dict(flyTrackData, 'ycm_vel', ycm_vel, units='cm/s', long_name='Y Velocity (cm/s)')
+    flyTrackData = my_add_data_to_dict(flyTrackData, 'vel_mag', vel_mag, units='cm/s', long_name='Speed (cm/s)')
+    flyTrackData = my_add_data_to_dict(flyTrackData, 'moving_ind', moving_ind, units='idx', long_name='Moving Index')
+
+    # (body angle)
+    flyTrackData = my_add_dset_to_dict(flyTrackData, 'body_angle', body_angle, units='deg',long_name='Body Angle (deg)')
 
     return flyTrackData
 
@@ -1332,38 +1350,57 @@ def hdf5_to_flyTrackData(DATA_PATH, DATA_FILENAME):
     # tracking results
     filename_full = os.path.join(DATA_PATH, DATA_FILENAME)
     with h5py.File(filename_full, 'r') as f:
+        # --------------
+        # Image Info
+        # --------------
+        flyTrackData = my_add_dset_to_dict(flyTrackData, 'ROI', f, 'ROI', 'roi')
+        flyTrackData = my_add_dset_to_dict(flyTrackData, 'cap_tip', f, 'CAP_TIP', 'cap_tip')
+        flyTrackData = my_add_dset_to_dict(flyTrackData, 'cap_tip_orientation', f, 'CAP_TIP',
+                                           'cap_tip_orientation', scalar_flag=True)
+        flyTrackData = my_add_dset_to_dict(flyTrackData, 'BG', f, 'BG', 'bg')
 
-        flyTrackData['ROI'] = f['ROI']['roi'][:]
-        flyTrackData['cap_tip'] = f['CAP_TIP']['cap_tip'][:]
-        flyTrackData['cap_tip_orientation'] = f['CAP_TIP']['cap_tip_orientation'][()]
-        flyTrackData['BG'] = f['BG']['bg'][:]
-
+        # --------------
+        # Params
+        # --------------
         flyTrackData['PIX2CM'] = f['Params']['pix2cm'][()]
         if (sys.version_info[0] < 3):
             flyTrackData['trackingParams'] = ast.literal_eval(f['Params']['trackingParams'][:])
 
+        # --------------------------
+        # Time
+        # --------------------------
         t = f['Time']['t'][:]
         flyTrackData['frames'] = np.arange(len(t))
-        flyTrackData['t'] = t
+        flyTrackData = my_add_dset_to_dict(flyTrackData, 't', f, 'Time', 't')
 
-        flyTrackData['xcm'] = f['BodyCM']['xcm'][:]
-        flyTrackData['ycm'] = f['BodyCM']['ycm'][:]
-        flyTrackData['xcm_smooth'] = f['BodyCM']['xcm_smooth'][:]
-        flyTrackData['ycm_smooth'] = f['BodyCM']['ycm_smooth'][:]
-        flyTrackData['cum_dist'] = f['BodyCM']['cum_dist'][:]
+        # --------------------------
+        # Trajectory info
+        # --------------------------
+        flyTrackData = my_add_dset_to_dict(flyTrackData, 'xcm', f, 'BodyCM', 'xcm')
+        flyTrackData = my_add_dset_to_dict(flyTrackData, 'ycm', f, 'BodyCM', 'ycm')
+        flyTrackData = my_add_dset_to_dict(flyTrackData, 'xcm_smooth', f, 'BodyCM', 'xcm_smooth')
+        flyTrackData = my_add_dset_to_dict(flyTrackData, 'ycm_smooth', f, 'BodyCM', 'ycm_smooth')
+        flyTrackData = my_add_dset_to_dict(flyTrackData, 'cum_dist', f, 'BodyCM', 'cum_dist')
+        
         try:
-            flyTrackData['interp_idx'] = f['BodyCM']['interp_idx'][:]
-        except KeyError:
+            flyTrackData = my_add_dset_to_dict(flyTrackData, 'interp_idx', f, 'BodyCM', 'interp_idx')
+        except (KeyError, ValueError):
             flyTrackData['interp_idx'] = np.nan
 
-        flyTrackData['xcm_vel'] = f['BodyVel']['vel_x'][:]
-        flyTrackData['ycm_vel'] = f['BodyVel']['vel_y'][:]
-        flyTrackData['vel_mag'] = f['BodyVel']['vel_mag'][:]
-        flyTrackData['moving_ind'] = f['BodyVel']['moving_ind'][:]
+        # ---------------
+        # Velocity
+        # ---------------
+        flyTrackData = my_add_dset_to_dict(flyTrackData, 'xcm_vel', f, 'BodyVel', 'vel_x')
+        flyTrackData = my_add_dset_to_dict(flyTrackData, 'ycm_vel', f, 'BodyVel', 'vel_y')
+        flyTrackData = my_add_dset_to_dict(flyTrackData, 'vel_mag', f, 'BodyVel', 'vel_mag')
+        flyTrackData = my_add_dset_to_dict(flyTrackData, 'moving_ind', f, 'BodyVel', 'moving_ind')
 
+        # ---------------
+        # Body Angle
+        # ---------------
         try:
-            flyTrackData['body_angle'] = f['BodyAngle']['body_angle'][:]
-        except KeyError:
+            flyTrackData = my_add_dset_to_dict(flyTrackData, 'body_angle', f, 'BodyAngle', 'body_angle')
+        except (KeyError, ValueError):
             flyTrackData['body_angle'] = np.nan
 
     return flyTrackData
@@ -1566,9 +1603,9 @@ def plot_body_cm(flyTrackData, plot_color=(1, 0, 0), SAVE_FLAG=False,
     ax0.plot(t, xcm_smooth, color=plot_color, label='smoothed')
     ax1.plot(t, ycm_smooth, color=plot_color, label='smoothed')
 
-    ax1.set_xlabel('Time [s]', fontsize=LABEL_FONTSIZE)
-    ax0.set_ylabel('X [cm]', fontsize=LABEL_FONTSIZE)
-    ax1.set_ylabel('Y [cm]', fontsize=LABEL_FONTSIZE)
+    ax1.set_xlabel('Time (s)', fontsize=LABEL_FONTSIZE)
+    ax0.set_ylabel('X Position (cm)', fontsize=LABEL_FONTSIZE)
+    ax1.set_ylabel('Y Position (cm)', fontsize=LABEL_FONTSIZE)
     ax0.set_title(DATA_FILENAME)
 
     ax0.set_xlim([np.amin(t), np.amax(t)])
@@ -1580,8 +1617,8 @@ def plot_body_cm(flyTrackData, plot_color=(1, 0, 0), SAVE_FLAG=False,
     # Y vs X
     fig_spatial, ax = plt.subplots()
     ax.plot(xcm_smooth, ycm_smooth, color=plot_color)
-    ax.set_xlabel('X [cm]', fontsize=LABEL_FONTSIZE)
-    ax.set_ylabel('Y [cm]', fontsize=LABEL_FONTSIZE)
+    ax.set_xlabel('X Position (cm)', fontsize=LABEL_FONTSIZE)
+    ax.set_ylabel('Y Position (cm)', fontsize=LABEL_FONTSIZE)
     ax.set_title(DATA_FILENAME)
 
     ax.axis('scaled')
@@ -1600,8 +1637,7 @@ def plot_body_cm(flyTrackData, plot_color=(1, 0, 0), SAVE_FLAG=False,
 
 # ------------------------------------------------------------------------------
 
-def plot_body_vel(flyTrackData, plot_color=(1, 0, 0), SAVE_FLAG=False,
-                  LABEL_FONTSIZE=trackingParams['label_fontsize']):
+def plot_body_vel(flyTrackData, plot_color=(1, 0, 0), SAVE_FLAG=False, LABEL_FONTSIZE=trackingParams['label_fontsize']):
     # load data from fly tracking structure
     t = flyTrackData['t']
     xcm_vel = flyTrackData['xcm_vel']
@@ -1614,9 +1650,9 @@ def plot_body_vel(flyTrackData, plot_color=(1, 0, 0), SAVE_FLAG=False,
     ax1.plot(t, ycm_vel, color=plot_color)
 
     # ax0.set_xlabel('Time [s]',fontsize=LABEL_FONTSIZE)
-    ax1.set_xlabel('Time [s]', fontsize=LABEL_FONTSIZE)
-    ax0.set_ylabel('X Vel. [cm/s]', fontsize=LABEL_FONTSIZE)
-    ax1.set_ylabel('Y Vel. [cm/s]', fontsize=LABEL_FONTSIZE)
+    ax1.set_xlabel('Time (s)', fontsize=LABEL_FONTSIZE)
+    ax0.set_ylabel('X Vel. (cm/s)', fontsize=LABEL_FONTSIZE)
+    ax1.set_ylabel('Y Vel. (cm/s)', fontsize=LABEL_FONTSIZE)
     ax0.set_title(DATA_FILENAME)
 
     ax0.set_xlim([np.amin(t), np.amax(t)])
@@ -1649,9 +1685,9 @@ def plot_body_angle(flyTrackData, plot_color=(1, 0, 0), SAVE_FLAG=False,
     ax1.plot(t, (180.0 / np.pi) * np.arctan2(ycm_vel, xcm_vel), color=plot_color)
 
     # ax0.set_xlabel('Time [s]',fontsize=LABEL_FONTSIZE)
-    ax1.set_xlabel('Time [s]', fontsize=LABEL_FONTSIZE)
-    ax0.set_ylabel('Angle from ellipse [deg]', fontsize=LABEL_FONTSIZE)
-    ax1.set_ylabel('Angle from vel. [deg]', fontsize=LABEL_FONTSIZE)
+    ax1.set_xlabel('Time (s)', fontsize=LABEL_FONTSIZE)
+    ax0.set_ylabel('Angle from ellipse (deg)', fontsize=LABEL_FONTSIZE)
+    ax1.set_ylabel('Angle from vel. (deg)', fontsize=LABEL_FONTSIZE)
     ax0.set_title(DATA_FILENAME)
 
     ax0.set_xlim([np.amin(t), np.amax(t)])
@@ -1687,8 +1723,8 @@ def plot_moving_v_still(flyTrackData, plot_color=(1, 0, 0), SAVE_FLAG=False,
              color=tuple([0.5, 0.5, 0.5]))
     ax0.plot(t, VEL_THRESH * np.ones(t.shape), 'k--')
 
-    ax0.set_xlabel('Time [s]', fontsize=LABEL_FONTSIZE)
-    ax0.set_ylabel('Speed [cm/s]', fontsize=LABEL_FONTSIZE)
+    ax0.set_xlabel('Time (s)', fontsize=LABEL_FONTSIZE)
+    ax0.set_ylabel('Speed (cm/s)', fontsize=LABEL_FONTSIZE)
     ax0.set_title(DATA_FILENAME)
 
     ax0.set_xlim([np.amin(t), np.amax(t)])
@@ -1705,8 +1741,7 @@ def plot_moving_v_still(flyTrackData, plot_color=(1, 0, 0), SAVE_FLAG=False,
     # ------------------------------------------------------------------------------
 
 
-def plot_cum_dist(flyTrackData, plot_color=(1, 0, 0), SAVE_FLAG=False,
-                  LABEL_FONTSIZE=trackingParams['label_fontsize']):
+def plot_cum_dist(flyTrackData, plot_color=(1, 0, 0), SAVE_FLAG=False, LABEL_FONTSIZE=trackingParams['label_fontsize']):
     # load data from fly tracking structure
     t = flyTrackData['t']
     cum_dist = flyTrackData['cum_dist']
@@ -1716,9 +1751,9 @@ def plot_cum_dist(flyTrackData, plot_color=(1, 0, 0), SAVE_FLAG=False,
     fig_cum_dist, ax0 = plt.subplots(1, 1, figsize=(7, 6))
     ax0.plot(t, cum_dist, color=plot_color)
 
-    ax0.set_xlabel('Time [s]', fontsize=LABEL_FONTSIZE)
+    ax0.set_xlabel('Time (s)', fontsize=LABEL_FONTSIZE)
 
-    ax0.set_ylabel('Cumulative Dist. [cm]', fontsize=LABEL_FONTSIZE)
+    ax0.set_ylabel('Cumulative Dist. (cm)', fontsize=LABEL_FONTSIZE)
     ax0.set_title(DATA_FILENAME)
     ax0.set_xlim([np.amin(t), np.amax(t)])
     plt.tight_layout()

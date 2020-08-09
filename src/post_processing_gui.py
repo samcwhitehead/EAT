@@ -66,6 +66,9 @@ if TKDND_FLAG:
     from TkinterDnD2 import *
 
 plt.style.use('classic')
+
+# method to use for multiple hypothesis correction
+p_adjust_str = 'bonferroni'
 # ===================================================================
 """
 
@@ -203,7 +206,8 @@ def my_shuffle_test(data_list, func=lambda x, y: np.nanmean(np.nanmean(x,axis=0)
             pval_mat[jth, ith] = pval_curr
 
     # correct for multiple hypothesis testing (bonferroni)
-    pval_mat = N_dsets*pval_mat
+    N_tests = N_dsets*(N_dsets - 1)/2 
+    pval_mat = N_tests*pval_mat
     pval_mat[pval_mat > 1.0] = 1.0
 
     # convert to pandas dataframe to match output of scikit-posthocs
@@ -618,8 +622,7 @@ class postProcess:
         # take the plot options from the list of possible summary/event vars
         var_sum = summary_heading
         var_evts = events_heading
-        ex_vars = ['Time (s)', 'Filename', 'Bank', 'Channel',
-                   'Mealwise Dwell Time Censoring (bool)']
+        ex_vars = ['Time (s)', 'Filename', 'Bank', 'Channel', 'Meal Number', 'Mealwise Dwell Time Censoring (bool)']
         var_sum = [x for x in var_sum if x not in ex_vars]
         var_evts = [x for x in var_evts if x not in ex_vars]
         plot_var_list = var_sum + var_evts
@@ -1110,11 +1113,11 @@ class postProcess:
         # ------------------------------------------------------------------------
         # run stats test (plan is to fill this in with more test as time goes on)
         if (stats_type == 'Anderson-Darling'):
-            pval_mat = sp.posthoc_anderson(data_list)
+            pval_mat = sp.posthoc_anderson(data_list, p_adjust=p_adjust_str)
         elif (stats_type == 'Conover'):
-            pval_mat = sp.posthoc_conover(data_list)
+            pval_mat = sp.posthoc_conover(data_list, p_adjust=p_adjust_str)
         elif (stats_type == 'Mann-Whitney'):
-            pval_mat = sp.posthoc_mannwhitney(data_list)
+            pval_mat = sp.posthoc_mannwhitney(data_list, p_adjust=p_adjust_str)
         # elif (stats_type == 'Tukey'):
         #     # convert data to array
         #    (data, labels) = convert_data_for_stats(data_list, data_names)
@@ -1122,12 +1125,12 @@ class postProcess:
         elif (stats_type == 'Tukey HSD'):
             # convert data to array
             (data, labels) = convert_data_for_stats(data_list, data_names)
-            pval_mat = sp.posthoc_tukey_hsd(data, labels)
+            pval_mat = sp.posthoc_tukey_hsd(data, labels, p_adjust=p_adjust_str)
             print('NB: for Tukey HSD, 1 = significant, 0 = not significant,' +
                   'and -1 = diagonal element at alpha = 0.05')
         elif (stats_type == 'Wilcoxon'):
             try:
-                pval_mat = sp.posthoc_wilcoxon(data_list)
+                pval_mat = sp.posthoc_wilcoxon(data_list, p_adjust=p_adjust_str)
             except ValueError:
                 print('Unequal N -- cannot use Wilcoxon test')
                 return

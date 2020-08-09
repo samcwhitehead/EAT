@@ -64,7 +64,7 @@ def batch_bout_analysis(channel_entry_list, tmin, tmax, tbin_size, plotFlag=Fals
             dset_smooth, bouts, volumes = bout_analysis_wTracking(filepath,
                                                     filekeyname, groupkeyname)
         else:
-            dset_smooth, bouts, volumes = bout_analysis(dset,frames)
+            dset_smooth, bouts, volumes, _ = bout_analysis(dset,frames)
         
         # trim analysis output based on time limits
         if not ( np.isnan(tmin) or np.isnan(tmax)):

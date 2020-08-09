@@ -55,7 +55,7 @@ def refine_tip(data_filename_full):
     #--------------------------------------------------------------------------
     # write the new value of the cap tip into the VID_INFO file
     if os.path.exists(vid_info_name):
-        with h5py.File(vid_info_name,'r+') as f:
+        with h5py.File(vid_info_name, 'r+') as f:
             cap_tip = f['CAP_TIP/' + bank_name + '_' + channel_name]
             cap_tip[...] = cap_tip_new
             
@@ -76,23 +76,22 @@ def refine_tip(data_filename_full):
     ycm_smooth_old = flyTrackData['ycm_smooth']
     cap_tip_orient = flyTrackData['cap_tip_orientation']    
     pix2cm = flyTrackData['PIX2CM']
-    #ROI = flyTrackData['ROI']
-    
+    # print(pix2cm)
+    # ROI = flyTrackData['ROI']
+
+    # account for difference in string encoding between Python 2 and 3
+    if isinstance(cap_tip_orient, bytes):
+        cap_tip_orient = cap_tip_orient.decode("UTF-8")
+
     # -------------------------------------
     # undo original coordinate transform 
-    xcm_pix, ycm_pix = invert_coord_transform(xcm_old, ycm_old, pix2cm, 
-                                              cap_tip_old, cap_tip_orient)
-    xcm_smooth_pix, ycm_smooth_pix = invert_coord_transform(xcm_smooth_old, 
-                                                            ycm_smooth_old, 
-                                                            pix2cm, cap_tip_old,
+    xcm_pix, ycm_pix = invert_coord_transform(xcm_old, ycm_old, pix2cm, cap_tip_old, cap_tip_orient)
+    xcm_smooth_pix, ycm_smooth_pix = invert_coord_transform(xcm_smooth_old, ycm_smooth_old, pix2cm, cap_tip_old,
                                                             cap_tip_orient)
     # ... and then redo with new cap tip                                            
-    xcm_new, ycm_new = perform_coord_transform(xcm_pix, ycm_pix, pix2cm,
-                                               cap_tip_new,cap_tip_orient)
-    xcm_smooth_new, ycm_smooth_new = perform_coord_transform(xcm_smooth_pix, 
-                                                            ycm_smooth_pix, 
-                                                            pix2cm, cap_tip_new,
-                                                            cap_tip_orient)    
+    xcm_new, ycm_new = perform_coord_transform(xcm_pix, ycm_pix, pix2cm, cap_tip_new, cap_tip_orient)
+    xcm_smooth_new, ycm_smooth_new = perform_coord_transform(xcm_smooth_pix, ycm_smooth_pix, pix2cm, cap_tip_new,
+                                                             cap_tip_orient)
     #--------------------------------------------------------------------------
     # save these results
     print('saving new results...')
@@ -117,11 +116,13 @@ def refine_tip(data_filename_full):
      # -----------------------------------------------------------------------------     
 if __name__ == '__main__':
     # allow users to select which files to adjust
-    init_path = 'D:/v_expresso_data/Matrix_Data'
-    if not os.path.exists(init_path):
-        init_path = sys.path[0]
-    data_filename_full_list = tkFileDialog.askopenfilenames(initialdir=init_path,
-                              title='Select *_TRACKING_PROCESSED.hdf5 to refine tip') 
+    # init_path = 'D:/v_expresso_data/Matrix_Data'
+    # if not os.path.exists(init_path):
+    #     init_path = sys.path[0]
+    # data_filename_full_list = tkFileDialog.askopenfilenames(initialdir=init_path,
+    #                           title='Select *_TRACKING_PROCESSED.hdf5 to refine tip')
+    title_str = 'Select *_TRACKING_PROCESSED.hdf5 to refine tip'
+    data_filename_full_list = tkFileDialog.askopenfilenames(title=title_str)
     # re-do tip location estimate
     for data_fn in data_filename_full_list:
         refine_tip(data_fn)

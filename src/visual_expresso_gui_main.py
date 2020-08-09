@@ -55,13 +55,12 @@ from v_expresso_image_lib import (visual_expresso_tracking_main,
 
 try:
     from TkinterDnD2 import *
-    from gui_setup_util import (buildButtonListboxPanel, buildBatchPanel,
-                                bindToTkDnD)
+    from gui_setup_util import (buildButtonListboxPanel, buildBatchPanel, bindToTkDnD, myEntryOptions)
 
     TKDND_FLAG = True
 except ImportError:
     print('Error: could not load TkDnD libraries. Drag/drop disabled')
-    from gui_setup_util import buildButtonListboxPanel, buildBatchPanel
+    from gui_setup_util import buildButtonListboxPanel, buildBatchPanel, myEntryOptions
 ## ============================================================================
 
 # =============================================================================
@@ -338,38 +337,35 @@ class ChannelDataFrame(Frame):
             channel_entry = self.listbox.get(ind)
 
             # analyze current channel
-            dset, frames, t, dset_smooth, bouts, volumes = \
-                Expresso.get_channel_data(parent, channel_entry,
-                                          DEBUG_FLAG=menu_debug_flag)
+            dset, frames, t, dset_smooth, bouts, volumes = Expresso.get_channel_data(parent, channel_entry,
+                                                                                     DEBUG_FLAG=menu_debug_flag)
 
             # if data set is not abnormal, skip
-            if (dset.size == 0):
+            if dset.size == 0:
                 print('Cannot read data from {} -- skipping'.format(channel_entry))
                 continue
 
             # otherwise, make plot
-            self.fig, self.ax1, self.ax2 = plot_channel_bouts(dset, dset_smooth,
-                                                              t, bouts)
-            self.fig.show()
+            fig, ax1, ax2 = plot_channel_bouts(dset, dset_smooth, t, bouts)
 
             # turn on cursor
-            self.multi = MultiCursor(self.fig.canvas, (self.ax1, self.ax2),
-                                     color='dodgerblue', lw=1.0, useblit=True,
-                                     horizOn=True, vertOn=True)
+            multi = MultiCursor(fig.canvas, (ax1, ax2), color='dodgerblue', lw=1.0, useblit=True, horizOn=True,
+                                vertOn=True)
 
             # get file info for title
             filepath, xp_str, channel_str = channel_entry.split(', ', 2)
             dirpath, fn = os.path.split(filepath)
             channel_name_full = ", ".join([fn, xp_str, channel_str])
 
-            self.fig.canvas.set_window_title(channel_name_full)
+            fig.canvas.set_window_title(channel_name_full)
 
+            # save this plot if the menu option to save all plots is selected
             if menu_save_flag:
-                filename_no_ext, _ = os.path.splitext(filename)
-                save_filename = filename_no_ext + '_' + filekeyname + "_" + \
-                                groupkeyname + '_bout_detection.png'
+                suffix_str = 'bout_detection.png'
+                filename_no_ext = os.path.splitext(fn)[0]
+                save_filename = '_'.join((filename_no_ext, xp_str, channel_str, suffix_str))
                 savename_full = os.path.join(dirpath, save_filename)
-                self.fig.savefig(savename_full)
+                fig.savefig(savename_full)
 
     # ------------------------------------------------
     # save summary results in csv format
@@ -382,8 +378,7 @@ class ChannelDataFrame(Frame):
 
         full_listbox_entry = self.listbox.get(selected_ind[0])
 
-        _, _, self.t, _, self.bouts, self.volumes = \
-            Expresso.get_channel_data(parent, full_listbox_entry)
+        _, _, self.t, _, self.bouts, self.volumes = Expresso.get_channel_data(parent, full_listbox_entry)
 
         # full_listbox_entry = self.listbox.get(self.selection_ind[0])
         filepath, filekeyname, groupkeyname = full_listbox_entry.split(', ', 2)
@@ -539,16 +534,12 @@ class VideoDataFrame(Frame):
         # then analyze or not depending on whether or not we want to overwrite (if we're saving)
         if overWriteFlag:
             # get raw center of mass tracking
-            _ = visual_expresso_tracking_main(file_path, filename,
-                                              DEBUG_BG_FLAG=menu_debug_flag,
-                                              DEBUG_CM_FLAG=menu_debug_flag,
-                                              SAVE_DATA_FLAG=save_debug_flag,
-                                              ELLIPSE_FIT_FLAG=False,
-                                              PARAMS=trackingParams)
+            visual_expresso_tracking_main(file_path, filename, DEBUG_BG_FLAG=menu_debug_flag,
+                                          DEBUG_CM_FLAG=menu_debug_flag, SAVE_DATA_FLAG=save_debug_flag,
+                                          ELLIPSE_FIT_FLAG=False, PARAMS=trackingParams)
 
             # process raw tracking results
-            _ = process_visual_expresso(file_path, track_filename,
-                                        SAVE_DATA_FLAG=save_debug_flag, DEBUG_FLAG=False)
+            process_visual_expresso(file_path, track_filename, SAVE_DATA_FLAG=save_debug_flag, DEBUG_FLAG=False)
 
         else:
             print('Not overwriting {} -- exiting'.format(filename_prefix))
@@ -573,13 +564,12 @@ class VideoDataFrame(Frame):
             # save_filename = os.path.normpath(save_filename)
 
             if os.path.exists(save_filename):
-                self.vid_filepath = file_entry
                 _, track_filename = os.path.split(save_filename)
-                self.flyTrackData_smooth = hdf5_to_flyTrackData(file_path, track_filename)
-                plot_body_cm(self.flyTrackData_smooth, SAVE_FLAG=menu_save_flag)
-                plot_body_vel(self.flyTrackData_smooth, SAVE_FLAG=menu_save_flag)
-                plot_moving_v_still(self.flyTrackData_smooth, SAVE_FLAG=menu_save_flag)
-                plot_cum_dist(self.flyTrackData_smooth, SAVE_FLAG=menu_save_flag)
+                flyTrackData_smooth = hdf5_to_flyTrackData(file_path, track_filename)
+                plot_body_cm(flyTrackData_smooth, SAVE_FLAG=menu_save_flag)
+                plot_body_vel(flyTrackData_smooth, SAVE_FLAG=menu_save_flag)
+                plot_moving_v_still(flyTrackData_smooth, SAVE_FLAG=menu_save_flag)
+                plot_cum_dist(flyTrackData_smooth, SAVE_FLAG=menu_save_flag)
             else:
                 tkMessageBox.showinfo(title='Error',
                                       message='Please analyze this video first ' + \
@@ -680,7 +670,7 @@ class BatchChannelFrame(Frame):
             return
 
         batch_bout_analysis(batch_list, tmin, tmax, tbin, plotFlag=True, combAnalysisFlag=comb_analysis_flag)
-        # (_, _, _, _, _, _, self.fig_raster, self.fig_hist) =
+
     # --------------------------------------------------------
     # save summary of batch channel analysis
     def save_batch(self, root):
@@ -700,13 +690,12 @@ class BatchChannelFrame(Frame):
                                       message='Set time range and bin size')
                 return
 
-            bouts_list, name_list, volumes_list, consumption, dur, latency = \
-                batch_bout_analysis(batch_list, tmin, tmax, tbin, plotFlag=False,
-                                    combAnalysisFlag=comb_analysis_flag)
+            bouts_list, names, vols, consump, dur, latency = batch_bout_analysis(batch_list, tmin, tmax, tbin,
+                                                                                 plotFlag=False,
+                                                                                 combAnalysisFlag=comb_analysis_flag)
 
             save_filename = tkFileDialog.asksaveasfilename(defaultextension=".xlsx")
-            save_batch_xlsx(save_filename, bouts_list, name_list,
-                            volumes_list, consumption, dur, latency)
+            save_batch_xlsx(save_filename, bouts_list, names, vols, consump, dur, latency)
 
             print('Completed saving {}'.format(save_filename))
 
@@ -836,6 +825,9 @@ class BatchVidFrame(Frame):
                                   message='Add video(s) to batch box for batch analysis')
             return
         else:
+            # # make sure user wants to analyze data because it could take a while
+            # yes_no_str = 'Do you want to continue batch tracking analysis?'
+            # overWriteFlag = tkMessageBox.askyesno(title='Continue?', message=yes_no_str)
             for vid_file in batch_list:
                 file_path, filename = os.path.split(vid_file)
                 try:
@@ -849,7 +841,6 @@ class BatchVidFrame(Frame):
                     e = sys.exc_info()[0]
                     print('Error:')
                     print(e)
-        self.vid_file_list = batch_list
 
     # --------------------------------------------------------------------
     # save summary of all videos in batch listbox
@@ -938,7 +929,7 @@ class BatchCombinedFrame(Frame):
         self.buttons['plot_channel']['command'] = self.plot_channel_batch
         self.buttons['plot_heatmap']['command'] = self.plot_heatmap_batch
         self.buttons['plot_cum_dist']['command'] = self.plot_cum_dist_batch
-        self.buttons['plot_xy']['command'] = self.plot_post_meal_xy_batch
+        self.buttons['plot_xy']['command'] = lambda: self.plot_post_meal_xy_batch(root)
 
         # switch buttons to 'disabled' until something is selected
         self.buttons['remove']['state'] = DISABLED
@@ -1145,17 +1136,13 @@ class BatchCombinedFrame(Frame):
                 tmax = int(self.t_entries['t_max'].get())
                 tbin = int(self.t_entries['t_bin'].get())
             except (NameError, ValueError):
-               tkMessageBox.showinfo(title='Error',
-                                     message='Set time range and bin size')
-               return
+                tkMessageBox.showinfo(title='Error',
+                                      message='Set time range and bin size')
+                return
 
             # run and save feeding analysis (a little redundant)
             batch_list_ch = [basic2channel(ent) for ent in batch_list]
-
-            (bouts_list, name_list, volumes_list, consumption_per_fly,
-             duration_per_fly, latency_per_fly, fig_raster, fig_hist) = \
-                batch_bout_analysis(batch_list_ch, tmin, tmax, tbin, plotFlag=True,
-                                    combAnalysisFlag=True)
+            batch_bout_analysis(batch_list_ch, tmin, tmax, tbin, plotFlag=True, combAnalysisFlag=True)
 
     # ---------------------------------------------------------------------
     # plot cumulative distance
@@ -1206,16 +1193,42 @@ class BatchCombinedFrame(Frame):
     # ---------------------------------------------------------------------
     # plot XY trajectory for flies after first meal
     # ---------------------------------------------------------------------
-    def plot_post_meal_xy_batch(self):
+    def plot_post_meal_xy_batch(self, root):
         batch_list = self.listbox.get(0, END)
         if len(batch_list) < 1:
-            tkMessageBox.showinfo(title='Error',
-                                  message='Add data to batch box for batch analysis')
+            tkMessageBox.showinfo(title='Error', message='Add data to batch box for batch analysis')
             return
         else:
-            fig, ax = plot_bout_aligned_var(batch_list, varx='xcm_smooth', vary='ycm_smooth', window_left=0,
-                                            window_right=300, meal_num=0)
+            # get plot options from user using pop-up window with entry boxes
+            options_entry_list = ['Meal Number', 'Time before meal end (s)', 'Time after meal end (s)']
+            options_popup = myEntryOptions(root.master, root, entry_list=options_entry_list,
+                                           title_str='Post-meal XY Plot Options')
+            options_popup.wait_window()
+
+            # extract param values from pop-up window (which should have been sent to "root")
+            try:
+                meal_num = int(root.popup_entry_values[options_entry_list[0]])
+                window_left_sec = float(root.popup_entry_values[options_entry_list[1]])
+                window_right_sec = float(root.popup_entry_values[options_entry_list[2]])
+            except (AttributeError, KeyError):
+                tkMessageBox.showinfo(title='Error', message='No values selected for plot params')
+                return
+
+            # make meal indexing more intuitive
+            if meal_num > 0:
+                meal_num = meal_num - 1
+
+            # make plot
+            fig, ax = plot_bout_aligned_var(batch_list, varx='xcm_smooth', vary='ycm_smooth',
+                                            window_left_sec=window_left_sec, window_right_sec=window_right_sec,
+                                            meal_num=meal_num)
+
+            # modify axis
             ax.axis('equal')
+            ax.set_ylabel('Y Position (cm)')
+            ax.set_xlabel('X Position (cm)')
+
+
 # =============================================================================
 # Main class for GUI
 # =============================================================================
@@ -1376,7 +1389,6 @@ class Expresso:
             print('In tracking debug mode')
         else:
             print('NOT in tracking debug mode')
-
 
     # ===================================================================
     def toggle_bout_debug(self):
@@ -1582,10 +1594,10 @@ class Expresso:
     # perform checks to make sure a given file in search directory is valid
     # (i.e. should be added to appropriate listbox). Also returns standardized 
     # form for filename
-    def is_valid_dir_file(self, f, fileType):
+    def is_valid_dir_file(self, f, file_type):
         # ----------------------------------------------
         # tests if selected file type is channel data
-        if (fileType == 'channel'):
+        if file_type == 'channel':
             valid_ext = (".hdf5")
             invalid_end = ('VID_INFO.hdf5', 'TRACKING.hdf5',
                            'TRACKING_PROCESSED.hdf5', 'COMBINED_DATA.hdf5')
@@ -1596,7 +1608,7 @@ class Expresso:
 
         # ----------------------------------------------
         # tests if selected data is a video file
-        elif (fileType == 'video'):
+        elif file_type == 'video':
             valid_ext = (".avi", ".mov", ".mp4", ".mpg", ".mpeg", ".rm",
                          ".swf", ".vob", ".wmv")
             processed_sfx = ("_TRACKING_PROCESSED.hdf5", "_COMBINED_DATA.hdf5")
@@ -1615,7 +1627,7 @@ class Expresso:
         # -------------------------------------------------------------------
         # file should be either video or channel -- otherwise return nothing     
         else:
-            print('Error: invalid fileType')
+            print('Error: invalid file_type')
             is_valid = False
             f_out = None
 
@@ -1709,7 +1721,7 @@ class Expresso:
             for key in list(grp.keys()):
                 dset, _ = load_hdf5(filename, filekeyname, key)
                 dset_check = (dset != -1)
-                if (np.sum(dset_check) > 0):
+                if np.sum(dset_check) > 0:
                     groupKeyNames.append(filename + ', ' + filekeyname +
                                          ', ' + key)
         return groupKeyNames
@@ -1728,19 +1740,17 @@ class Expresso:
 
         if not bad_data_flag:
             if comb_analysis_flag:
-                dset_smooth, bouts, volumes = bout_analysis_wTracking(filename,
-                                                                      filekeyname, groupkeyname,
+                dset_smooth, bouts, volumes = bout_analysis_wTracking(filename, filekeyname, groupkeyname,
                                                                       debugBoutFlag=DEBUG_FLAG)
             else:
-                dset_smooth, bouts, volumes = bout_analysis(dset, frames,
-                                                            debug_mode=DEBUG_FLAG)
+                dset_smooth, bouts, volumes, _ = bout_analysis(dset, frames, debug_mode=DEBUG_FLAG)
         else:
             dset_smooth = np.array([])
             bouts = np.array([])
             volumes = np.array([])
             print('Problem with loading data set--invalid name')
 
-        return (dset, frames, t, dset_smooth, bouts, volumes)
+        return dset, frames, t, dset_smooth, bouts, volumes
 
     # ===================================================================
     @staticmethod
@@ -1749,9 +1759,9 @@ class Expresso:
         for_batch = []
 
         # choose appropriate box
-        if (listboxSourceType == 'channels'):
+        if listboxSourceType == 'channels':
             listbox_source = self.channeldata_frame.listbox
-        elif (listboxSourceType == 'videos'):
+        elif listboxSourceType == 'videos':
             listbox_source = self.viddata_frame.listbox
         else:
             print('Error: invalid source selection')
