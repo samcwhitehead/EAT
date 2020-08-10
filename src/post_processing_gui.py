@@ -887,8 +887,7 @@ class postProcess:
                     print(errStrH5.format(plot_var, fn))
                     continue
 
-                # read out all group keys in hdf5 file (these corrspond to 
-                # individual flies)
+                # read out all group keys in hdf5 file (these correspond to individual flies)
                 with h5py.File(fn, 'r') as f:
                     fly_grp_list = f.keys()
                     data_curr = []
@@ -919,10 +918,12 @@ class postProcess:
                                 continue
 
                         # read out data for current plot variable (need to read out differently depending on format)
-                        if scalarFlag:
+                        arrayCheck = isinstance(f[grp][dset_name], (list, tuple, np.ndarray))
+                        if scalarFlag or not arrayCheck:
                             h5_dat = f[grp][dset_name][()]
                         else:
                             h5_dat = f[grp][dset_name][:]
+
                         data_curr.append(h5_dat)
 
                         # if time series case, also grab time
@@ -932,9 +933,16 @@ class postProcess:
                         elif mealwiseFlag and not timeSeriesFlag:
                             # if we're not using time series data, but don't 
                             # have scalar data, need to flatten list
-                            data_curr = [item for sublist in data_curr for
-                                         item in sublist]
+                            if isinstance(data_curr[0], (np.float64, np.ndarray)):
+                                data_curr = list(np.hstack(data_curr))
+                            else:
+                                data_curr = [item for sublist in data_curr for item in sublist]
 
+                    # remove nan values from data
+                    if timeSeriesFlag:
+                        data_curr = [d for d in data_curr if not np.all(np.isnan(d))]
+                    else:
+                        data_curr = [d for d in data_curr if not np.isnan(d)]
             # ------------------
             # csv case      
             # ------------------

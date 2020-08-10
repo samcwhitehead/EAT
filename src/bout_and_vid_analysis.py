@@ -289,7 +289,7 @@ def bout_analysis_wTracking(filename, bank_name, channel_name, bts=[], vols=[], 
         _, bouts_corrected = check_bouts(bouts_corrected, dset_smooth, analysis_params=bout_params)
 
         # get volumes for these new, corrected meal bouts
-        volumes_corrected = dset_smooth[bouts_corrected[1, :]] - dset_smooth[bouts_corrected[0, :]]
+        volumes_corrected = dset_smooth[bouts_corrected[0, :]] - dset_smooth[bouts_corrected[1, :]]
     else:
         # just check full (merged) meals
         bout_check = check_bout_wTracking(bouts, channel_t, vid_t, xcm_smooth, ycm_smooth, vel_mag,
@@ -939,7 +939,10 @@ def save_comb_summary(entry_list, xlsx_filename,
             volumes = flyCombinedData['volumes']
             channel_t = flyCombinedData['channel_t']
 
-            num_meals = float(bouts.shape[1])
+            try:
+                num_meals = float(bouts.shape[1])
+            except IndexError:
+                num_meals = 0
             total_volume = np.sum([float(vol) for vol in volumes])
 
             if (num_meals < 1):
@@ -1001,7 +1004,7 @@ def save_comb_summary(entry_list, xlsx_filename,
             ws_summary.append(row_list)
 
             # event info (multiple lines per fly)
-            for jth in range(bouts.shape[1]):
+            for jth in range(num_meals):
                 bout_start_curr = bout_start_t[jth]
                 bout_end_curr = bout_end_t[jth]
                 volume_curr = float(volumes[jth])

@@ -693,7 +693,15 @@ class BatchChannelFrame(Frame):
                                                                                  plotFlag=False,
                                                                                  combAnalysisFlag=comb_analysis_flag)
 
+            # request save filename from user
             save_filename = tkFileDialog.asksaveasfilename(defaultextension=".xlsx")
+
+            # check that we got a valid filename
+            if not save_filename:
+                print('Invalid save name')
+                return
+
+            # save batch channel summary
             save_batch_xlsx(save_filename, bouts_list, names, vols, consump, dur, latency)
 
             print('Completed saving {}'.format(save_filename))
@@ -850,8 +858,15 @@ class BatchVidFrame(Frame):
                                   message='Add videos to batch box for batch analysis')
             return
         else:
+            # request summary filename to save to
             xlsx_filename = tkFileDialog.asksaveasfilename(defaultextension=".xlsx",
                                                            title='Select save filename')
+            # check that we got a valid filename
+            if not xlsx_filename:
+                print('Invalid save name')
+                return
+
+            # save tracking summary (XLSX)
             save_vid_summary(batch_list, xlsx_filename)
 
     # --------------------------------------------------------------------
@@ -922,7 +937,7 @@ class BatchCombinedFrame(Frame):
         self.buttons['remove']['command'] = self.rm_items
         self.buttons['clear_all']['command'] = self.clear_all
         self.buttons['analyze']['command'] = lambda: self.analyze_batch(root)
-        self.buttons['comb_data']['command'] = self.comb_data_batch
+        self.buttons['comb_data']['command'] = lambda: self.comb_data_batch(root)
         self.buttons['save_sum']['command'] = self.save_batch_comb
         self.buttons['save_ts']['command'] = self.save_time_series
         self.buttons['plot_channel']['command'] = self.plot_channel_batch
@@ -1033,9 +1048,15 @@ class BatchCombinedFrame(Frame):
                                   message='Add data to batch box for batch analysis')
             return
         else:
-            # save video summary (XLSX)
+            # request filename for summary
             xlsx_filename = tkFileDialog.asksaveasfilename(defaultextension=".xlsx",
                                                            title='Select save filename for COMBINED summary')
+            # check that we got a valid filename
+            if not xlsx_filename:
+                print('Invalid save name')
+                return
+
+            # save video summary (XLSX)
             save_comb_summary(batch_list, xlsx_filename)
 
             # also save to hdf5
@@ -1062,7 +1083,7 @@ class BatchCombinedFrame(Frame):
     # ---------------------------------------------------------------------
     # for each list element, combine channel and video data into one file
     # ---------------------------------------------------------------------
-    def comb_data_batch(self):
+    def comb_data_batch(self, root):
         batch_list = self.listbox.get(0, END)
         if len(batch_list) < 1:
             tkMessageBox.showinfo(title='Error',
@@ -1084,10 +1105,9 @@ class BatchCombinedFrame(Frame):
 
                 # perform feeding analysis
                 channel_entry = basic2channel(data_file)
-                dset, frames, channel_t, dset_smooth, bouts, volumes = \
-                    Expresso.get_channel_data(root, channel_entry,
-                                              DEBUG_FLAG=False,
-                                              combFlagArg=True)
+                dset, frames, channel_t, dset_smooth, bouts, volumes = Expresso.get_channel_data(root, channel_entry,
+                                                                                                 DEBUG_FLAG=False,
+                                                                                                 combFlagArg=True)
 
                 # merge data into one dict structure
                 flyCombinedData = merge_v_expresso_data(dset, dset_smooth,

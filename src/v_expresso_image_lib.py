@@ -1100,8 +1100,7 @@ def visual_expresso_tracking_main(DATA_PATH, DATA_FILENAME, DEBUG_BG_FLAG=False,
 # ------------------------------------------------------------------------------
 # Interpolate, filter, and smooth fly trajectories
 
-def filter_fly_trajectory(xcm, ycm, t, PARAMS=trackingParams, filt_order=4,
-                          filt_level=2.0):
+def filter_fly_trajectory(xcm, ycm, t, PARAMS=trackingParams, filt_order=4, filt_level=2.0):
     # generate low-pass filter
     dt = np.mean(np.diff(t))
     fs = 1.0 / dt
@@ -1119,8 +1118,22 @@ def filter_fly_trajectory(xcm, ycm, t, PARAMS=trackingParams, filt_order=4,
 
     # interpolate through nan values with a spline
     interp_idx = np.logical_or(np.isnan(xcm), np.isnan(ycm))
-    xcm_interp = interpolate.interp1d(t[~interp_idx], xcm[~interp_idx], kind='linear', fill_value='extrapolate')
-    ycm_interp = interpolate.interp1d(t[~interp_idx], ycm[~interp_idx], kind='linear', fill_value='extrapolate')
+
+    # for fill_value (used for extrapolation), take median value of first and last 20 points (for start/end)
+    fill_window = np.min([20, np.sum(interp_idx)])
+    x_start = np.median(xcm[~interp_idx][:fill_window])
+    x_end = np.median(xcm[~interp_idx][-fill_window:])
+    x_fill_vals = (x_start, x_end)
+
+    y_start = np.median(ycm[~interp_idx][:fill_window])
+    y_end = np.median(ycm[~interp_idx][-fill_window:])
+    y_fill_vals = (y_start, y_end)
+
+    # run interpolating spline
+    xcm_interp = interpolate.interp1d(t[~interp_idx], xcm[~interp_idx], kind='linear', bounds_error=False,
+                                      fill_value=x_fill_vals)
+    ycm_interp = interpolate.interp1d(t[~interp_idx], ycm[~interp_idx], kind='linear', bounds_error=False,
+                                      fill_value=y_fill_vals)
 
     # xcm_interp = interpolate_tracks(xcm_curr)
     # ycm_interp = interpolate_tracks(ycm_curr)
