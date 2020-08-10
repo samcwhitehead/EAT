@@ -12,7 +12,7 @@ import os
 import numpy as np
 import cv2
 import h5py
-import progressbar
+# import progressbar
 
 from v_expresso_image_lib import (get_roi, get_cropped_im, get_cap_tip,
                                   get_pixel2cm)
@@ -177,11 +177,11 @@ def crop_and_save_single_video(filepath, xp_names, channel_numbers):
     #=================================================
     
     cc = 0
-    widgets = [progressbar.FormatLabel('Processing ' + data_prefix), ' ', 
-               progressbar.Percentage(), ' ',
-               progressbar.Bar('/'), ' ', progressbar.RotatingMarker()]
-    pbar = progressbar.ProgressBar(widgets=widgets, maxval=(N_FRAMES-1))
-    pbar.start()
+    # widgets = [progressbar.FormatLabel('Processing ' + data_prefix), ' ',
+    #            progressbar.Percentage(), ' ',
+    #            progressbar.Bar('/'), ' ', progressbar.RotatingMarker()]
+    # pbar = progressbar.ProgressBar(widgets=widgets, maxval=(N_FRAMES-1))
+    # pbar.start()
     while cc < (N_FRAMES-1):
         ret, frame = cap.read()
         
@@ -189,7 +189,7 @@ def crop_and_save_single_video(filepath, xp_names, channel_numbers):
             print('Error reading frame')
             break
         
-        for (xp_num,xp_name) in enumerate(xp_names):
+        for (xp_num, xp_name) in enumerate(xp_names):
             for (ch_num, ch_name) in enumerate(channel_names[xp_num]):
                 
                 idx = xp_num*len(channel_names[xp_num])+ch_num
@@ -201,10 +201,12 @@ def crop_and_save_single_video(filepath, xp_names, channel_numbers):
                 vid_writer = writer_list[idx]
                 vid_writer.write(frame_crop)
                 
-        pbar.update(cc)
+        # pbar.update(cc)
+        if np.mod(cc, 5000) == 0:
+            print("Saving cropped frames: {}/{} completed".format(cc, N_FRAMES))
         cc += 1
     
-    pbar.finish()            
+    # pbar.finish()
     
     #=================================================
     # close video writers

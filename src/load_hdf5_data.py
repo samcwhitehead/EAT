@@ -7,12 +7,13 @@ Created on Mon Jan 09 10:47:57 2017
 import h5py
 import numpy as np
 import sys
-
+import os
 
 # ------------------------------------------------------------------------------
 # function to add dataset with units to h5py file object writer
-def my_add_h5_dset(f, grp_name, dset_name, data, units=None, long_name=None):
+def my_add_h5_dset(f, grp_name, dset_name, data, units='', long_name=''):
     ds = f.create_dataset('{}/{}'.format(grp_name, dset_name), data=data)
+    # add units and long name
     ds.attrs['units'] = units
     ds.attrs['long_name'] = long_name
 
@@ -40,7 +41,7 @@ def my_add_dset_to_dict(d, key, f, grp_name, dset_name, scalar_flag=False):
 
 # ------------------------------------------------------------------------------
 # function to add data with units to dictionary "d"
-def my_add_data_to_dict(dct, key, data, units=None, long_name=None):
+def my_add_data_to_dict(dct, key, data, units='', long_name=''):
     # add data to dict
     dct[key] = data
 
@@ -55,7 +56,12 @@ def my_add_data_to_dict(dct, key, data, units=None, long_name=None):
 def load_hdf5(filename,grpnum,dsetnum):
     dset = np.array([])
     t = np.array([])
-    f = h5py.File(filename,'r')
+    # check that file exists
+    if not os.path.exists(filename):
+        print("Error: file does not exist")
+        return dset, t
+
+    f = h5py.File(filename, 'r')
     fileKeyNames = list(f.keys())
     
     if sys.version_info[0] < 3:

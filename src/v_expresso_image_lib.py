@@ -1327,7 +1327,7 @@ def process_visual_expresso(DATA_PATH, DATA_FILENAME, PARAMS=trackingParams, SAV
     flyTrackData = my_add_data_to_dict(flyTrackData, 'moving_ind', moving_ind, units='idx', long_name='Moving Index')
 
     # (body angle)
-    flyTrackData = my_add_dset_to_dict(flyTrackData, 'body_angle', body_angle, units='deg',long_name='Body Angle (deg)')
+    flyTrackData = my_add_data_to_dict(flyTrackData, 'body_angle', body_angle, units='deg',long_name='Body Angle (deg)')
 
     return flyTrackData
 
@@ -1823,6 +1823,7 @@ def batch_plot_cum_dist(VID_FILENAMES, SAVE_FLAG=False,
     if SAVE_FLAG:
         print('under construction')
 
+    return fig_cum_dist, ax_cum_dist
 
 # ------------------------------------------------------------------------------
 

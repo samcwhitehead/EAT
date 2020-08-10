@@ -44,9 +44,16 @@ from v_expresso_pre_process import crop_and_save_single_video
 
 from refine_tip_estimation import refine_tip 
 
-TKDND_FLAG = True
-if TKDND_FLAG:
+# allows drag and drop functionality. if you don't want this, or are having
+#  trouble with the TkDnD installation, set to false.
+try:
     from TkinterDnD2 import *
+    from gui_setup_util import (buildButtonListboxPanel, buildBatchPanel, bindToTkDnD, myEntryOptions)
+
+    TKDND_FLAG = True
+except ImportError:
+    print('Error: could not load TkDnD libraries. Drag/drop disabled')
+    from gui_setup_util import buildButtonListboxPanel, buildBatchPanel, myEntryOptions
 #------------------------------------------------------------------------------
 
 class DirectoryFrame(Frame):

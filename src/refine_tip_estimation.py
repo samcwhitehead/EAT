@@ -12,6 +12,7 @@ import sys
 import os 
 import h5py
 import cv2
+import matplotlib.pyplot as plt
 
 if sys.version_info[0] < 3:
     #from Tkinter import *
@@ -26,7 +27,7 @@ from v_expresso_image_lib import (get_cap_tip, hdf5_to_flyTrackData,
 #------------------------------------------------------------------------------
 # MAIN FUNCTION
 #------------------------------------------------------------------------------
-def refine_tip(data_filename_full):    
+def refine_tip(data_filename_full, debug_flag=False):
     data_dir, data_filename = os.path.split(data_filename_full)
     
     # get file paths for data and video info files
@@ -40,7 +41,7 @@ def refine_tip(data_filename_full):
     print('Re-doing capillary tip estimation for {}'.format(data_header))
     #--------------------------------------------------------------------------
     # open a new window to reselect the cap tip location
-    flyTrackData = hdf5_to_flyTrackData(data_dir,data_filename)
+    flyTrackData = hdf5_to_flyTrackData(data_dir, data_filename)
     BG = flyTrackData['BG']
     cap_tip_old = flyTrackData['cap_tip']
     print('old cap tip:')
@@ -51,7 +52,19 @@ def refine_tip(data_filename_full):
     
     print('new cap tip value:')
     print(cap_tip_new)
-    
+
+    if debug_flag:
+        # plot new and old capillary tip locations
+        fig, ax = plt.subplots()
+        ax.imshow(BG)
+        ax.plot(cap_tip_old[0], cap_tip_old[1], 'wo', alpha=0.4, markerfacecolor='w')
+        ax.plot(cap_tip_new[0], cap_tip_new[1], 'ro', alpha=0.4, markerfacecolor='r')
+
+        # save resulting figure
+        fig_save_fn = "_".join((hdf5_name, bank_name, channel_name, "cap_tip_im.png"))
+        fig_save_path = os.path.join(data_dir, fig_save_fn )
+        fig.savefig(fig_save_path)
+        plt.close(fig)
     #--------------------------------------------------------------------------
     # write the new value of the cap tip into the VID_INFO file
     if os.path.exists(vid_info_name):
@@ -62,8 +75,8 @@ def refine_tip(data_filename_full):
         
     # check that it read out correctly
     if os.path.exists(vid_info_name):
-        with h5py.File(vid_info_name,'r') as f:
-            cap_tip_test = f['CAP_TIP/' + bank_name + '_' + channel_name].value
+        with h5py.File(vid_info_name, 'r') as f:
+            cap_tip_test = f['CAP_TIP/' + bank_name + '_' + channel_name][:]
             print('The saved value is:')
             print(cap_tip_test)
     
@@ -113,7 +126,7 @@ def refine_tip(data_filename_full):
     
 # -----------------------------------------------------------------------------
 # Run main function
-     # -----------------------------------------------------------------------------     
+# -----------------------------------------------------------------------------
 if __name__ == '__main__':
     # allow users to select which files to adjust
     # init_path = 'D:/v_expresso_data/Matrix_Data'
@@ -126,4 +139,3 @@ if __name__ == '__main__':
     # re-do tip location estimate
     for data_fn in data_filename_full_list:
         refine_tip(data_fn)
-    

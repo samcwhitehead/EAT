@@ -393,9 +393,11 @@ def flyCombinedData_to_hdf5(flyCombinedData):
         # pixel to centimeter conversion factor
         my_add_h5_dset(f, 'Params', 'pix2cm', flyCombinedData['PIX2CM'], units='pix/cm', long_name='Pixels per cm')
         # tracking params
-        my_add_h5_dset(f, 'Params', 'trackingParams', str(flyCombinedData['trackingParams']))
+        if 'trackingParams' in flyCombinedData:
+            my_add_h5_dset(f, 'Params', 'trackingParams', str(flyCombinedData['trackingParams']))
         # bout params
-        my_add_h5_dset(f, 'Params', 'boutParams', str(flyCombinedData['boutParams']))
+        if 'boutParams' in flyCombinedData:
+            my_add_h5_dset(f, 'Params', 'boutParams', str(flyCombinedData['boutParams']))
 
         # ----------------------------------
         # body velocity
@@ -414,10 +416,9 @@ def flyCombinedData_to_hdf5(flyCombinedData):
                        long_name='Y Position (cm)')
         my_add_h5_dset(f, 'BodyCM', 'cum_dist', flyCombinedData['cum_dist'], units='cm',
                        long_name='Cumulative Dist. (cm)')
-        try:
+
+        if 'interp_idx' in flyCombinedData:
             my_add_h5_dset(f, 'BodyCM', 'interp_idx', flyCombinedData['interp_idx'], units='idx')
-        except TypeError:
-            my_add_h5_dset(f, 'BodyCM', 'interp_idx', np.nan, units='idx')
 
         # unprocessed data/information from tracking output file
         my_add_h5_dset(f, 'BodyCM', 'xcm', flyCombinedData['xcm'], units='cm', long_name='Raw X Position (cm)')
@@ -428,11 +429,9 @@ def flyCombinedData_to_hdf5(flyCombinedData):
         my_add_h5_dset(f, 'CAP_TIP', 'cap_tip_orientation', flyCombinedData['cap_tip_orientation'])
 
         # body angle (?)
-        try:
+        if 'body_angle' in flyCombinedData:
             my_add_h5_dset(f, 'BodyAngle', 'body_angle', flyCombinedData['body_angle'], units='deg',
                            long_name='Body Angle (deg)')
-        except TypeError:
-            my_add_h5_dset(f, 'BodyAngle', 'body_angle', np.nan, units='deg', long_name='Body Angle (deg)')
 
         # ----------------------------------
         # feeding data
@@ -557,9 +556,12 @@ def interp_channel_time(flyCombinedData):
 
 # ------------------------------------------------------------------------------
 # function to calculate dwell time after each meal
-def get_dwell_time(bouts, channel_t, dist_mag, vid_t,
-                   fz_rad=analysisParams['food_zone_rad']):
-    N_meals = bouts.shape[1]
+def get_dwell_time(bouts, channel_t, dist_mag, vid_t, fz_rad=analysisParams['food_zone_rad']):
+    try:
+        N_meals = bouts.shape[1]
+    except IndexError:
+        N_meals = 0
+
     dwell_times = np.full((N_meals, 1), np.nan)
     censoring = np.full((N_meals, 1), 0)
     for meal_num in range(N_meals):
@@ -1091,7 +1093,10 @@ def save_comb_summary_hdf5(entry_list, h5_filename,
                 volumes = flyCombinedData['volumes']
                 channel_t = flyCombinedData['channel_t']
 
-                num_meals = float(bouts.shape[1])
+                try:
+                    num_meals = float(bouts.shape[1])
+                except IndexError:
+                    num_meals = 0
                 total_volume = np.sum([float(vol) for vol in volumes])
 
                 if (num_meals < 1):
@@ -1180,7 +1185,7 @@ def save_comb_summary_hdf5(entry_list, h5_filename,
 
                 # feeding info (mealwise)
                 f.create_dataset('{}/meal_num'.format(grp_name),
-                                 data=np.arange(bouts.shape[1]))
+                                 data=np.arange(num_meals))
                 f.create_dataset('{}/start_time'.format(grp_name),
                                  data=np.asarray(bout_start_t))
                 f.create_dataset('{}/end_time'.format(grp_name),

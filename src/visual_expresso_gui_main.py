@@ -52,7 +52,6 @@ from v_expresso_image_lib import (visual_expresso_tracking_main,
 
 # allows drag and drop functionality. if you don't want this, or are having 
 #  trouble with the TkDnD installation, set to false.
-
 try:
     from TkinterDnD2 import *
     from gui_setup_util import (buildButtonListboxPanel, buildBatchPanel, bindToTkDnD, myEntryOptions)
