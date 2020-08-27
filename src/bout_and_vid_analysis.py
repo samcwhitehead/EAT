@@ -418,7 +418,10 @@ def flyCombinedData_to_hdf5(flyCombinedData):
                        long_name='Cumulative Dist. (cm)')
 
         if 'interp_idx' in flyCombinedData:
-            my_add_h5_dset(f, 'BodyCM', 'interp_idx', flyCombinedData['interp_idx'], units='idx')
+            try:
+                my_add_h5_dset(f, 'BodyCM', 'interp_idx', flyCombinedData['interp_idx'], units='idx')
+            except TypeError:
+                pass
 
         # unprocessed data/information from tracking output file
         my_add_h5_dset(f, 'BodyCM', 'xcm', flyCombinedData['xcm'], units='cm', long_name='Raw X Position (cm)')
@@ -430,8 +433,11 @@ def flyCombinedData_to_hdf5(flyCombinedData):
 
         # body angle (?)
         if 'body_angle' in flyCombinedData:
-            my_add_h5_dset(f, 'BodyAngle', 'body_angle', flyCombinedData['body_angle'], units='deg',
-                           long_name='Body Angle (deg)')
+            try:
+                my_add_h5_dset(f, 'BodyAngle', 'body_angle', flyCombinedData['body_angle'], units='deg',
+                               long_name='Body Angle (deg)')
+            except TypeError:
+                pass
 
         # ----------------------------------
         # feeding data
@@ -472,6 +478,7 @@ def hdf5_to_flyCombinedData(filepath, filename):
         flyCombinedData = my_add_dset_to_dict(flyCombinedData, 'cap_tip_orientation', f, 'CAP_TIP',
                                               'cap_tip_orientation', scalar_flag=True)
         flyCombinedData = my_add_dset_to_dict(flyCombinedData, 'BG', f, 'BG', 'bg')
+
 
         # --------------------------
         # params
@@ -940,7 +947,7 @@ def save_comb_summary(entry_list, xlsx_filename,
             channel_t = flyCombinedData['channel_t']
 
             try:
-                num_meals = float(bouts.shape[1])
+                num_meals = bouts.shape[1]
             except IndexError:
                 num_meals = 0
             total_volume = np.sum([float(vol) for vol in volumes])
@@ -952,8 +959,8 @@ def save_comb_summary(entry_list, xlsx_filename,
                 bout_end_t = np.nan
 
             else:
-                bout_start_t = [channel_t[bouts[0, ith]] for ith in range(bouts.shape[1])]
-                bout_end_t = [channel_t[bouts[1, ith]] for ith in range(bouts.shape[1])]
+                bout_start_t = [channel_t[bouts[0, ith]] for ith in range(num_meals)]
+                bout_end_t = [channel_t[bouts[1, ith]] for ith in range(num_meals)]
                 latency = bout_start_t[0]
                 duration_eating = np.sum(np.asarray(bout_end_t) - np.asarray(bout_start_t))
 
@@ -1097,7 +1104,7 @@ def save_comb_summary_hdf5(entry_list, h5_filename,
                 channel_t = flyCombinedData['channel_t']
 
                 try:
-                    num_meals = float(bouts.shape[1])
+                    num_meals = bouts.shape[1]
                 except IndexError:
                     num_meals = 0
                 total_volume = np.sum([float(vol) for vol in volumes])

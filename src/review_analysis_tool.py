@@ -7,7 +7,7 @@ Created on Wed Jan 16 10:52:15 2019
 # ------------------------------------------------------------------------------
 import matplotlib
 
-matplotlib.use('TkAgg')
+# matplotlib.use('TkAgg')
 
 import os
 import sys

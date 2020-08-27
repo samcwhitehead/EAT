@@ -20,7 +20,7 @@ Created on Wed Sep 18 10:15:58 2019
 # -----------------------------------------------------------------------------
 import matplotlib
 
-matplotlib.use('TkAgg')
+# matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 

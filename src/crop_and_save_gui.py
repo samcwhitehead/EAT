@@ -14,7 +14,7 @@ GUI for (hopefully) more convenient pre-processing of video data
 """
 
 import matplotlib
-matplotlib.use('TkAgg')
+# matplotlib.use('TkAgg')
 
 import os 
 import sys 
