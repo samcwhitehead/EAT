@@ -1243,7 +1243,9 @@ class BatchCombinedFrame(Frame):
                                             meal_num=meal_num)
 
             # modify axis
-            ax.axis('equal')
+            ax.set_aspect('equal', 'box')
+            ax.set_xlim([-0.4, 0.4])
+            ax.set_ylim([-0.4, 0.4])
             ax.set_ylabel('Y Position (cm)')
             ax.set_xlabel('X Position (cm)')
 

@@ -101,8 +101,8 @@ def fit_piecewise_slopes(dset_denoised_med, frames,
 
     # try to exclude outliers for robust variance estimation
     N = len(dset_der) - 1
-    dset_der_clipped = dset_der[(dset_der > np.percentile(dset_der, clip_level)) & \
-                                (dset_der < np.percentile(dset_der, 100 - clip_level))]
+    clip_ind = (dset_der > np.percentile(dset_der, clip_level)) & (dset_der < np.percentile(dset_der, 100 - clip_level))
+    dset_der_clipped = dset_der[clip_ind]
 
     # variance estimation for changepoint detector
     if var_user_flag == False:
@@ -461,9 +461,13 @@ def estimate_evap_rate(evap_ind, piecewise_fits, piecewise_fit_dur):
     mean_evap_rate = np.dot(evap_rates, evap_durations) / np.sum(evap_durations)  # weighted mean
 
     # get standard deviation of estimated evaporation rates
-    multFactor = (np.sum(evap_ind) - 1)/np.sum(evap_ind)  # for weighted std, need a term like (M-1)/M (M=# weights)
-    var_evap_rate = np.dot((evap_rates - mean_evap_rate)**2, evap_durations) / (multFactor*np.sum(evap_durations))
-    std_evap_rate = np.sqrt(var_evap_rate)
+    if np.sum(evap_ind) < 2:
+        std_evap_rate = 0.0
+    else:
+        # for weighted std, need a term like (M-1)/M (M=# weights)
+        multFactor = (np.sum(evap_ind) - 1)/np.sum(evap_ind)
+        var_evap_rate = np.dot((evap_rates - mean_evap_rate)**2, evap_durations) / (multFactor*np.sum(evap_durations))
+        std_evap_rate = np.sqrt(var_evap_rate)
 
     return mean_evap_rate, std_evap_rate
 

@@ -544,17 +544,21 @@ def interp_channel_time(flyCombinedData):
     dset_smooth = flyCombinedData['channel_dset_smooth']
     bouts = flyCombinedData['bouts']
 
-    bouts_start_t = channel_t[bouts[0, :]]
-    bouts_end_t = channel_t[bouts[1, :]]
+    if bouts.size > 1:
+        bouts_start_t = channel_t[bouts[0, :]]
+        bouts_end_t = channel_t[bouts[1, :]]
 
-    bouts_idx1_cam = np.zeros(bouts_start_t.shape, dtype=int)
-    bouts_idx2_cam = np.zeros(bouts_end_t.shape, dtype=int)
+        bouts_idx1_cam = np.zeros(bouts_start_t.shape, dtype=int)
+        bouts_idx2_cam = np.zeros(bouts_end_t.shape, dtype=int)
 
-    for ith in np.arange(len(bouts_idx1_cam)):
-        bouts_idx1_cam[ith] = np.argmin(np.abs(bouts_start_t[ith] - cam_t))
-        bouts_idx2_cam[ith] = np.argmin(np.abs(bouts_end_t[ith] - cam_t))
+        for ith in np.arange(len(bouts_idx1_cam)):
+            bouts_idx1_cam[ith] = np.argmin(np.abs(bouts_start_t[ith] - cam_t))
+            bouts_idx2_cam[ith] = np.argmin(np.abs(bouts_end_t[ith] - cam_t))
 
-    bouts_cam = np.vstack((bouts_idx1_cam, bouts_idx2_cam))
+        bouts_cam = np.vstack((bouts_idx1_cam, bouts_idx2_cam))
+    else:
+        bouts_cam = np.empty((2, 0), dtype=int)
+
     dset_cam = np.interp(cam_t, channel_t, dset_raw)
     dset_smooth_cam = np.interp(cam_t, channel_t, dset_smooth)
 
@@ -656,8 +660,8 @@ def plot_bout_aligned_var(basic_entries, varx='xcm_smooth', vary='ycm_smooth', w
     plt.rcParams["axes.prop_cycle"] = plt.cycler("color", plt.cm.Set1.colors)
 
     # intialize figure and axis
-    fig, ax = plt.subplots(1, 1, figsize=figsize)
-
+    # fig, ax = plt.subplots(1, 1, figsize=figsize)
+    fig, ax = plt.subplots(1, 1)
     # ----------------------------------------------------
     # loop over data files
     for ith, ent in enumerate(basic_entries):
@@ -680,7 +684,7 @@ def plot_bout_aligned_var(basic_entries, varx='xcm_smooth', vary='ycm_smooth', w
 
     # --------------------------------------------------------------------
     # axis properties (once plotting has finished)
-    plt.legend(loc='upper left', bbox_to_anchor=(1, 1.05),fontsize='x-small')
+    plt.legend(loc='upper left', bbox_to_anchor=(1, 1.05), fontsize='x-small')
     plt.tight_layout()
 
     # show figure
