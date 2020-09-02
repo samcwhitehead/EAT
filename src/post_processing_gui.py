@@ -943,8 +943,15 @@ class postProcess:
                         elif mealwiseFlag and not timeSeriesFlag:
                             # if we're not using time series data, but don't 
                             # have scalar data, need to flatten list
-                            if isinstance(data_curr[0], (np.float64, np.ndarray)):
-                                data_curr = list(np.hstack(data_curr))
+                            if len(data_curr) == 1:
+                                # if there's only one entry in "data_curr", just convert to list
+                                data_curr = list(data_curr)
+                            elif isinstance(data_curr[0], (np.float64, np.ndarray)):
+                                # if data is numpy type, squeeze entries in the "data_curr" list to one dim
+                                data_curr_squeeze = [np.squeeze(d) for d in data_curr]
+
+                                # then concatenate entries into one array and convert to list
+                                data_curr = list(np.hstack(data_curr_squeeze))
                             else:
                                 data_curr = [item for sublist in data_curr for item in sublist]
 
