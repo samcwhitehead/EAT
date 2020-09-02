@@ -915,7 +915,7 @@ class BatchCombinedFrame(Frame):
         # define names/labels for buttons + listboxes
         self.button_names = [['add', 'remove', 'clear_all'],
                              ['analyze', 'comb_data', 'save_sum', 'save_ts'],
-                             ['plot_channel', 'plot_heatmap', 'plot_cum_dist', 'plot_xy']]
+                             ['plot_channel', 'plot_heatmap', 'plot_cum_dist', 'plot_xy', 'plot_dist_mag']]
         self.button_labels = [['Add Data to Batch',
                                'Remove Selected',
                                'Clear All'],
@@ -926,7 +926,8 @@ class BatchCombinedFrame(Frame):
                               ['Plot Channel Analysis',
                                'Plot Heatmap',
                                'Plot Cumulative Distance',
-                               'Plot Post-Meal XY']]
+                               'Plot Post-Meal XY',
+                               'Plot Post-Meal Radial Dist.']]
 
         # generate basic panel layout                      
         buildBatchPanel(self, self.button_names, self.button_labels,
@@ -944,6 +945,7 @@ class BatchCombinedFrame(Frame):
         self.buttons['plot_heatmap']['command'] = self.plot_heatmap_batch
         self.buttons['plot_cum_dist']['command'] = self.plot_cum_dist_batch
         self.buttons['plot_xy']['command'] = lambda: self.plot_post_meal_xy_batch(root)
+        self.buttons['plot_dist_mag']['command'] = lambda: self.plot_post_meal_dist_mag_batch(root)
 
         # switch buttons to 'disabled' until something is selected
         self.buttons['remove']['state'] = DISABLED
@@ -1210,7 +1212,7 @@ class BatchCombinedFrame(Frame):
             batch_plot_heatmap(batch_list_vid, t_lim=[tmin, tmax], SAVE_FLAG=False)
 
     # ---------------------------------------------------------------------
-    # plot XY trajectory for flies after first meal
+    # plot XY trajectory for flies after a given meal
     # ---------------------------------------------------------------------
     def plot_post_meal_xy_batch(self, root):
         batch_list = self.listbox.get(0, END)
@@ -1220,8 +1222,9 @@ class BatchCombinedFrame(Frame):
         else:
             # get plot options from user using pop-up window with entry boxes
             options_entry_list = ['Meal Number', 'Time before meal end (s)', 'Time after meal end (s)']
+            options_init_vals = [1, 0, 10]
             options_popup = myEntryOptions(root.master, root, entry_list=options_entry_list,
-                                           title_str='Post-meal XY Plot Options')
+                                           title_str='Post-meal XY Plot Options', initial_vals=options_init_vals)
             options_popup.wait_window()
 
             # extract param values from pop-up window (which should have been sent to "root")
@@ -1249,7 +1252,49 @@ class BatchCombinedFrame(Frame):
             ax.set_ylabel('Y Position (cm)')
             ax.set_xlabel('X Position (cm)')
 
+    # ------------------------------------------------------------------------
+    # plot radial distance as a function of time for flies after a given meal
+    # -------------------------------------------------------------------------
+    def plot_post_meal_dist_mag_batch(self, root):
+        batch_list = self.listbox.get(0, END)
+        if len(batch_list) < 1:
+            tkMessageBox.showinfo(title='Error', message='Add data to batch box for batch analysis')
+            return
+        else:
+            # get plot options from user using pop-up window with entry boxes
+            options_entry_list = ['Meal Number', 'Time before meal end (s)', 'Time after meal end (s)']
+            options_init_vals = [1, 0, 100]
+            options_popup = myEntryOptions(root.master, root, entry_list=options_entry_list,
+                                           title_str='Post-meal Radial Dist. Plot Options',
+                                           initial_vals=options_init_vals)
+            options_popup.wait_window()
 
+            # extract param values from pop-up window (which should have been sent to "root")
+            try:
+                meal_num = int(root.popup_entry_values[options_entry_list[0]])
+                window_left_sec = float(root.popup_entry_values[options_entry_list[1]])
+                window_right_sec = float(root.popup_entry_values[options_entry_list[2]])
+            except (AttributeError, KeyError):
+                tkMessageBox.showinfo(title='Error', message='No values selected for plot params')
+                return
+
+            # make meal indexing more intuitive
+            if meal_num > 0:
+                meal_num = meal_num - 1
+
+            # make plot
+            fig, ax = plot_bout_aligned_var(batch_list, varx='t', vary='dist_mag',
+                                            window_left_sec=window_left_sec, window_right_sec=window_right_sec,
+                                            meal_num=meal_num)
+
+            # modify axis
+            # ax.set_aspect('equal', 'box')
+            # ax.set_ylim([0.0, 0.4])
+            ax.set_xlim([window_left_sec, window_right_sec])
+            ax.set_ylabel('Radial Dist. (cm)')
+            ax.set_xlabel('Time (s)')
+
+            fig.tight_layout()
 # =============================================================================
 # Main class for GUI
 # =============================================================================

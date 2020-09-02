@@ -38,7 +38,7 @@ except ImportError:
 
 # =============================================================================
 class myEntryOptions(Toplevel):
-    def __init__(self, master, app, entry_list=[], title_str='Options'):
+    def __init__(self, master, app, entry_list=[], title_str='Options', initial_vals=[]):
         Toplevel.__init__(self, master)
         self.master = master
         self.app = app  # this is a stand in for e.g. the "Expresso" class, which isn't itself a Tk object
@@ -63,6 +63,7 @@ class myEntryOptions(Toplevel):
 
             # initialize variable for this entry box and store in entryWindow struct
             var = StringVar()
+            var.set(initial_vals[rowCurr])
             self.entry_vars[ent] = var
 
             # generate label and entry widgets

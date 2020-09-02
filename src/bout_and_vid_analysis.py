@@ -39,7 +39,7 @@ summary_heading = ['Filename', 'Bank', 'Channel', 'Number of Meals',
                    'Average Speed (cm/s)', 'Fraction Time Moving',
                    'Pre Meal Dist. (cm)', 'Food Zone Frac. (pre meal)',
                    'Food Zone Frac. (post meal)', 'Time (s)',
-                   'Cumulative Dist. Time Series (cm)']
+                   'Cumulative Dist. Time Series (cm)', 'Radial Dist. Time Series (cm)']
 
 events_heading = ['Filename', 'Bank', 'Channel', 'Meal Number',
                   'Mealwise Start Time (s)', 'Mealwise End Time (s)',
@@ -61,7 +61,8 @@ summary_heading_dict = {'Filename': 'f_name',
                         'Food Zone Frac. (pre meal)': 'fz_frac_pre',
                         'Food Zone Frac. (post meal)': 'fz_frac_post',
                         'Time (s)': 't',
-                        'Cumulative Dist. Time Series (cm)': 'cum_dist_ts'}
+                        'Cumulative Dist. Time Series (cm)': 'cum_dist_ts',
+                        'Radial Dist. Time Series (cm)': 'dist_mag_ts'}
 
 # variables to put in events page
 events_heading_dict = {'Filename': 'f_name',
@@ -617,31 +618,45 @@ def get_meal_aligned_data(h5_fn, var, window_left_sec=0, window_right_sec=10, me
     if N_meals <= meal_num:  # or (N_meals < 1):
         return
 
-    # check if selected var data exists in file. for most cases, var should be a key in the flyCombinedData dict. if
-    # it's one of a few other data types, we need to define it here. if neither are found, return
-    if var in flyCombinedData:
-        data_var = flyCombinedData[var]
-    elif var == 'dist_mag':
-        data_var = np.sqrt(flyCombinedData['xcm_smooth'] ** 2 + flyCombinedData['ycm_smooth'] ** 2)
-    else:
-        print('No {} data in {} -- skipping'.format(var, filename))
-        return
-
     # convert time window (given in seconds) into index
-    dt = np.nanmean(np.diff(flyCombinedData['t']))
-    window_left_idx = round(window_left_sec/dt)
-    window_right_idx = round(window_right_sec/dt)
+    t = flyCombinedData['t']
+    dt = np.nanmean(np.diff(t))
+    window_left_idx = round(window_left_sec / dt)
+    window_right_idx = round(window_right_sec / dt)
 
     # get indices for time window around meal (distance from meal end time is specified by window_left and window_right)
     meal_end = bouts_cam[1, meal_num]
     idx1 = np.max([meal_end - window_left_idx, 0])
-    idx2 = np.min([meal_end + window_right_idx, len(data_var) - 1])
+    idx2 = np.min([meal_end + window_right_idx, len(t) - 1])
 
-    # get data for these indices
-    data_aligned = data_var[idx1:idx2]
+    # ----------------------------
+    # LOAD DATA
+    # ----------------------------
+    # check if selected var data exists in file. for most cases, var should be a key in the flyCombinedData dict. if
+    # it's one of a few other data types, we need to define it here. if neither are found, return
+    if var in flyCombinedData:
+        data_var = flyCombinedData[var]
+
+        # get data for specified indices (window around meal)
+        data_aligned = data_var[idx1:idx2]
+
+    elif var == 'dist_mag':
+        # load x and y cm position data
+        xdata = flyCombinedData['xcm_smooth']
+        ydata = flyCombinedData['ycm_smooth']
+
+        # get data for specified indices (window around meal) and center by subtracting off value at meal end
+        xdata_aligned = xdata[idx1:idx2] - xdata[meal_end]
+        ydata_aligned = ydata[idx1:idx2] - ydata[meal_end]
+
+        # get radial distance by taking root sum of x,y
+        data_aligned = np.sqrt(xdata_aligned**2 + ydata_aligned**2)
+    else:
+        print('No {} data in {} -- skipping'.format(var, filename))
+        return
 
     # for some variables, want to subtract off value at beginning of array to align
-    init_sub_vars = ['t', 'xcm_smooth', 'ycm_smooth', 'dist_mag']
+    init_sub_vars = ['t', 'xcm_smooth', 'ycm_smooth']
     if var in init_sub_vars:
         data_aligned = data_aligned - data_var[meal_end]
 
@@ -685,10 +700,12 @@ def plot_bout_aligned_var(basic_entries, varx='xcm_smooth', vary='ycm_smooth', w
     # --------------------------------------------------------------------
     # axis properties (once plotting has finished)
     plt.legend(loc='upper left', bbox_to_anchor=(1, 1.05), fontsize='x-small')
-    plt.tight_layout()
 
     # show figure
     fig.show()
+
+    # make plot window tight
+    plt.tight_layout()
 
     return fig, ax
 # ---------------------------------------------------------------------------------------------
@@ -1185,6 +1202,7 @@ def save_comb_summary_hdf5(entry_list, h5_filename,
             # tracking info (time series)
             f.create_dataset('{}/t'.format(grp_name), data=vid_t)
             f.create_dataset('{}/cum_dist_ts'.format(grp_name), data=cum_dist)
+            f.create_dataset('{}/dist_mag_ts'.format(grp_name), data=dist_mag)
 
             if not justTrackFlag:
                 # feeding info
