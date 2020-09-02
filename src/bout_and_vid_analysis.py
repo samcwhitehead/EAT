@@ -680,7 +680,7 @@ def plot_bout_aligned_var(basic_entries, varx='xcm_smooth', vary='ycm_smooth', w
             continue
 
         # plot data on current axes
-        ax.plot(data_x, data_y, '.-', label=ent_id, markersize=2, linewidth=0.75)
+        ax.plot(data_x, data_y, '-', label=ent_id, markersize=2, linewidth=0.75)
 
     # --------------------------------------------------------------------
     # axis properties (once plotting has finished)

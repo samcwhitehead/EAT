@@ -434,7 +434,7 @@ class DataOptions(Frame):
         self.eater_chkbtn = Checkbutton(self.options_frame,
                                         text="Exclude flies without meals",
                                         variable=self.onlyEatersFlag,
-                                        command= lambda: self.update_eater_toggle_var(parent))
+                                        command=lambda: self.update_eater_toggle_var(parent))
         self.eater_chkbtn.grid(column=col, row=row, padx=2, pady=2,
                                sticky=(N, S, E, W))
 
@@ -442,7 +442,17 @@ class DataOptions(Frame):
     # callback functions
     def update_eater_toggle_var(self, parent):
         """ function to update selection of plot variable """
+        # read state of checkbutton widget
+        chkbtn_val = self.eater_chkbtn.instate(['selected'])
+        # read state of checkbutton variable
         curr_val = self.onlyEatersFlag.get()
+
+        # check that widget and variable values agree
+        if curr_val != chkbtn_val:
+            self.onlyEatersFlag.set(not curr_val)
+            curr_val = self.onlyEatersFlag.get()
+
+        # print current state of exclude checkbox variable
         if curr_val:
             print('Only analyzing flies who ate meals')
         else:
