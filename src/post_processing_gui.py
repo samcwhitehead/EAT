@@ -1150,7 +1150,7 @@ class postProcess:
         elif (stats_type == 'Tukey HSD'):
             # convert data to array
             (data, labels) = convert_data_for_stats(data_list, data_names)
-            pval_mat = sp.posthoc_tukey_hsd(data, labels, p_adjust=p_adjust_str)
+            pval_mat = sp.posthoc_tukey_hsd(data, labels)
             print('NB: for Tukey HSD, 1 = significant, 0 = not significant,' +
                   'and -1 = diagonal element at alpha = 0.05')
         elif (stats_type == 'Wilcoxon'):
