@@ -666,7 +666,7 @@ def get_meal_aligned_data(h5_fn, var, window_left_sec=0, window_right_sec=10, me
 # ---------------------------------------------------------------------------------------------
 # function to plot feeding-bout-end aligned data (old -- tries to group data, need to update)
 def plot_bout_aligned_var(basic_entries, varx='xcm_smooth', vary='ycm_smooth', window_left_sec=0, window_right_sec=300,
-                          meal_num=0, figsize=(6, 6), saveFlag=False):
+                          meal_num=0, figsize=(6, 6), saveFlag=False, save_filename=None):
     # suffix for filename with both feeding and tracking data
     data_suffix = '_COMBINED_DATA.hdf5'
 
@@ -674,9 +674,43 @@ def plot_bout_aligned_var(basic_entries, varx='xcm_smooth', vary='ycm_smooth', w
     #colors = plt.cm.Set1(range(len(basic_entries)))
     plt.rcParams["axes.prop_cycle"] = plt.cycler("color", plt.cm.Set1.colors)
 
+    # ---------------------------------------------------------------
+    # initialize save output
+    # ---------------------------------------------------------------
+    # for saving options, first check that we have a valid save name
+    if saveFlag and not save_filename:
+        saveFlag = False
+
+    # but, if we do have a valid savename, create xlsx workbook
+    if saveFlag:
+        # initialize workbook and sheet
+        wb = Workbook()
+        ws = wb.active
+        ws.title = vary + " vs " + varx
+
+        # write meal number in first row
+        meal_num_heading = ['Meal Number = ', str(meal_num)]
+        ws.append(meal_num_heading)
+
+        # write filenames in second row
+        fn_heading = []
+        for ent in basic_entries:
+            fn_heading.append(os.path.basename(ent))
+            fn_heading.append(' ')
+        ws.append(fn_heading)
+
+        # write variable names in third row
+        var_heading = len(basic_entries)*[varx, vary]
+        ws.append(var_heading)
+
+        # initialize storage for all data
+        data_all = []
+
+    # --------------------------------------------
     # intialize figure and axis
     # fig, ax = plt.subplots(1, 1, figsize=figsize)
     fig, ax = plt.subplots(1, 1)
+
     # ----------------------------------------------------
     # loop over data files
     for ith, ent in enumerate(basic_entries):
@@ -697,6 +731,12 @@ def plot_bout_aligned_var(basic_entries, varx='xcm_smooth', vary='ycm_smooth', w
         # plot data on current axes
         ax.plot(data_x, data_y, '-', label=ent_id, markersize=2, linewidth=0.75)
 
+        # if we're saving data, add current x,y data to "all" list
+        if saveFlag:
+            # NB: appending x then y in this order so we can have an x and y column for each file
+            data_all.append(data_x)
+            data_all.append(data_y)
+
     # --------------------------------------------------------------------
     # axis properties (once plotting has finished)
     plt.legend(loc='upper left', bbox_to_anchor=(1, 1.05), fontsize='x-small')
@@ -707,7 +747,22 @@ def plot_bout_aligned_var(basic_entries, varx='xcm_smooth', vary='ycm_smooth', w
     # make plot window tight
     plt.tight_layout()
 
+    # --------------------------------------------------------------------
+    # if saving, write combined data to workbook
+    if saveFlag:
+        # convert list to numpy array and take transpose so we have N x M matrix, where N = # data points, M = # files
+        data_all = np.transpose(np.vstack(data_all))
+
+        # loop over rows and write to file
+        for row in data_all:
+            ws.append(list(row))
+
+        # save workbook
+        wb.save(save_filename)
+
     return fig, ax
+
+
 # ---------------------------------------------------------------------------------------------
 # function to plot feeding-bout-end aligned data (old -- tries to group data, need to update)
 def plot_bout_aligned_var_old(basic_entries, var='vel_mag', window=300, N_meals=4, figsize=(6, 10), saveFlag=False):

@@ -38,7 +38,7 @@ except ImportError:
 
 # =============================================================================
 class myEntryOptions(Toplevel):
-    def __init__(self, master, app, entry_list=[], title_str='Options', initial_vals=[]):
+    def __init__(self, master, app, entry_list=[], title_str='Options', init_vals=[], chkbtn_list=[]):
         Toplevel.__init__(self, master)
         self.master = master
         self.app = app  # this is a stand in for e.g. the "Expresso" class, which isn't itself a Tk object
@@ -63,7 +63,7 @@ class myEntryOptions(Toplevel):
 
             # initialize variable for this entry box and store in entryWindow struct
             var = StringVar()
-            var.set(initial_vals[rowCurr])
+            var.set(init_vals[rowCurr])
             self.entry_vars[ent] = var
 
             # generate label and entry widgets
@@ -77,17 +77,52 @@ class myEntryOptions(Toplevel):
             self.entry_fields[ent] = e
 
         # ---------------------------------------------------------------
+        # get current row counter to keep track of new rows we might add
+        row_counter = (len(entry_list)+1)
+
+        # -------------------------------------------------------------
+        # add any additional stuff (e.g. checkbuttons) if given as input
+        self.chkbtn_list = chkbtn_list
+        if len(chkbtn_list) > 0:
+            # initialize dict fields for checkbuttons in frame
+            # self.chkbtn_labels = {}
+            self.chkbtn_fields = {}
+            self.chkbtn_vars = {}
+
+            # loop over checkbuttons
+            for (ith, cb) in enumerate(chkbtn_list):
+                # configure weight of checkbutton row
+                Grid.rowconfigure(self, row_counter, weight=1)
+
+                # initialize variable for this checkbutton and store in entryWindow struct
+                var = BooleanVar()
+                var.set(False)
+                self.chkbtn_vars[cb] = var
+
+                # generate label and entry widgets
+                # lbl = Label(self, text=cb)
+                # lbl.grid(column=0, row=row_counter, sticky=NSEW)
+                c = Checkbutton(self, text=cb, variable=self.chkbtn_vars[cb])
+                c.grid(column=1, row=row_counter, columnspan=2, sticky=NSEW)
+
+                # add entry and label widgets to entryWindow struct
+                # self.chkbtn_labels[c] = lbl
+                self.chkbtn_fields[cb] = c
+
+                # increment row counter
+                row_counter += 1
+        # ---------------------------------------------------------------
         # add "OK" and "Cancel" buttons
-        buttonRow = (len(entry_list)+1)   # row number for buttons
+        button_row = row_counter   # row number for buttons
         # configure row weight
-        Grid.rowconfigure(self, buttonRow, weight=1)
+        Grid.rowconfigure(self, button_row, weight=1)
         # add OK button
         b_ok = Button(self, text='OK', command=self.ok_button_pressed)
-        b_ok.grid(column=0, row=buttonRow, sticky=NSEW)
+        b_ok.grid(column=0, row=button_row, sticky=NSEW)
 
         # add Cancel button
         b_cancel = Button(self, text='Cancel', command=self.cancel_button_pressed)
-        b_cancel.grid(column=1, row=buttonRow, sticky=NSEW)
+        b_cancel.grid(column=1, row=button_row, sticky=NSEW)
 
     # callback for "OK" button
     def ok_button_pressed(self):
@@ -95,6 +130,11 @@ class myEntryOptions(Toplevel):
         self.app.popup_entry_values = {}
         for ent in self.entry_list:
             self.app.popup_entry_values[ent] = self.entry_fields[ent].get()
+
+        # return checkbutton values to master window in dict form
+        self.app.popup_chkbtn_values = {}
+        for cb in self.chkbtn_list:
+            self.app.popup_chkbtn_values[cb] = self.chkbtn_fields[cb].instate(['selected'])
 
         # exit pop-up
         self.exit_popup()

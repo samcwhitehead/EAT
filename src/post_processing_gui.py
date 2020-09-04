@@ -920,7 +920,7 @@ class postProcess:
                     # loop over groups (flies) and read out data
                     for grp in fly_grp_list:
                         # skip if fly doesn't eat and we're supposed to skip non-eating flies
-                        if onlyEatersFlag:
+                        if onlyEatersFlag or mealwiseFlag:
                             num_meals = f[grp]['num_meals'][()]
 
                             # if not meals present, skip current file
@@ -930,36 +930,40 @@ class postProcess:
                         # read out data for current plot variable (need to read out differently depending on format)
                         arrayCheck = isinstance(f[grp][dset_name], (list, tuple, np.ndarray))
                         if scalarFlag or not arrayCheck:
+                            # read out scalar data
                             h5_dat = f[grp][dset_name][()]
+
+                            # apparently our check above does not guarantee scalar data, so perform another check
+                            if isinstance(h5_dat, np.ndarray) and not timeSeriesFlag:
+                                data_curr = data_curr + h5_dat.tolist()
+                            else:
+                                data_curr.append(h5_dat)
                         else:
+                            # read out array data
                             h5_dat = f[grp][dset_name][:]
 
-                        data_curr.append(h5_dat)
+                            # if it's time series data, we want each time array to be an element of the data_curr list.
+                            if timeSeriesFlag:
+                                data_curr.append(h5_dat)
+                            else:
+                                # if it's mealwise data, want to flatten input and add to list
+                                data_curr = data_curr + h5_dat.tolist()
+                        # data_curr.append(h5_dat)
 
                         # if time series case, also grab time
                         if timeSeriesFlag:
                             t_dat = f[grp]['t'][:]
                             t_curr.append(t_dat)
-                        elif mealwiseFlag and not timeSeriesFlag:
-                            # if we're not using time series data, but don't 
-                            # have scalar data, need to flatten list
-                            if len(data_curr) == 1:
-                                # if there's only one entry in "data_curr", just convert to list
-                                data_curr = list(data_curr)
-                            elif isinstance(data_curr[0], (np.float64, np.ndarray)):
-                                # if data is numpy type, squeeze entries in the "data_curr" list to one dim
-                                data_curr_squeeze = [np.squeeze(d) for d in data_curr]
-
-                                # then concatenate entries into one array and convert to list
-                                data_curr = list(np.hstack(data_curr_squeeze))
-                            else:
-                                data_curr = [item for sublist in data_curr for item in sublist]
 
                     # remove nan values from data
                     if timeSeriesFlag:
-                        data_curr = [d for d in data_curr if not np.all(np.isnan(d))]
+                        # want to remove both time array and data array if data is all nan
+                        zipped_out = [(d, t) for (d, t) in zip(data_curr, t_curr) if not np.all(np.isnan(d))]
+                        data_curr, t_curr = map(list, zip(*zipped_out))
+                        # data_curr = [d for d in data_curr if not np.all(np.isnan(d))]
                     else:
                         data_curr = [d for d in data_curr if not np.isnan(d)]
+
             # ------------------
             # csv case      
             # ------------------

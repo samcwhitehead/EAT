@@ -1224,7 +1224,7 @@ class BatchCombinedFrame(Frame):
             options_entry_list = ['Meal Number', 'Time before meal end (s)', 'Time after meal end (s)']
             options_init_vals = [1, 0, 10]
             options_popup = myEntryOptions(root.master, root, entry_list=options_entry_list,
-                                           title_str='Post-meal XY Plot Options', initial_vals=options_init_vals)
+                                           title_str='Post-meal XY Plot Options', init_vals=options_init_vals)
             options_popup.wait_window()
 
             # extract param values from pop-up window (which should have been sent to "root")
@@ -1264,9 +1264,10 @@ class BatchCombinedFrame(Frame):
             # get plot options from user using pop-up window with entry boxes
             options_entry_list = ['Meal Number', 'Time before meal end (s)', 'Time after meal end (s)']
             options_init_vals = [1, 0, 100]
+            options_chkbtn_list = ['Save data output?']
             options_popup = myEntryOptions(root.master, root, entry_list=options_entry_list,
                                            title_str='Post-meal Radial Dist. Plot Options',
-                                           initial_vals=options_init_vals)
+                                           init_vals=options_init_vals, chkbtn_list=options_chkbtn_list)
             options_popup.wait_window()
 
             # extract param values from pop-up window (which should have been sent to "root")
@@ -1274,9 +1275,21 @@ class BatchCombinedFrame(Frame):
                 meal_num = int(root.popup_entry_values[options_entry_list[0]])
                 window_left_sec = float(root.popup_entry_values[options_entry_list[1]])
                 window_right_sec = float(root.popup_entry_values[options_entry_list[2]])
+                options_save_flag = root.popup_chkbtn_values[options_chkbtn_list[0]]
+                # print(options_save_flag)
             except (AttributeError, KeyError):
                 tkMessageBox.showinfo(title='Error', message='No values selected for plot params')
                 return
+
+            # if we're saving results, request filename from user
+            if options_save_flag:
+                prompt_str = "Select save filename for meal-aligned radial distance"
+                xlsx_filename = tkFileDialog.asksaveasfilename(defaultextension=".xlsx", title=prompt_str)
+
+                # check that we got a valid filename
+                if not xlsx_filename:
+                    print('Invalid save name')
+                    options_save_flag = False
 
             # make meal indexing more intuitive
             if meal_num > 0:
@@ -1285,7 +1298,7 @@ class BatchCombinedFrame(Frame):
             # make plot
             fig, ax = plot_bout_aligned_var(batch_list, varx='t', vary='dist_mag',
                                             window_left_sec=window_left_sec, window_right_sec=window_right_sec,
-                                            meal_num=meal_num)
+                                            meal_num=meal_num, saveFlag=options_save_flag, save_filename=xlsx_filename)
 
             # modify axis
             # ax.set_aspect('equal', 'box')
