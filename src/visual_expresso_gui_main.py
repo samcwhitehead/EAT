@@ -944,8 +944,26 @@ class BatchCombinedFrame(Frame):
         self.buttons['plot_channel']['command'] = self.plot_channel_batch
         self.buttons['plot_heatmap']['command'] = self.plot_heatmap_batch
         self.buttons['plot_cum_dist']['command'] = self.plot_cum_dist_batch
-        self.buttons['plot_xy']['command'] = lambda: self.plot_post_meal_xy_batch(root)
-        self.buttons['plot_dist_mag']['command'] = lambda: self.plot_post_meal_dist_mag_batch(root)
+        self.buttons['plot_xy']['command'] = lambda: self.plot_post_meal_data_batch(root, varx='xcm_smooth',
+                                                                                    vary='ycm_smooth',
+                                                                                    data_name='XY',
+                                                                                    x_label='X Position (cm)',
+                                                                                    y_label='Y Position (cm)',
+                                                                                    x_lim=[-0.4, 0.4],
+                                                                                    y_lim=[-0.4, 0.4],
+                                                                                    init_vals=[1, 0, 10],
+                                                                                    axis_equal_flag=True,
+                                                                                    axis_tight_flag=False)
+        self.buttons['plot_dist_mag']['command'] = lambda: self.plot_post_meal_data_batch(root, varx='t',
+                                                                                          vary='dist_mag',
+                                                                                          data_name='Radial Dist.',
+                                                                                          x_label='Time (s)',
+                                                                                          y_label='Radial Dist. (cm)',
+                                                                                          x_lim=[],
+                                                                                          y_lim=[],
+                                                                                          init_vals=[1, 0, 100],
+                                                                                          axis_equal_flag=False,
+                                                                                          axis_tight_flag=True)
 
         # switch buttons to 'disabled' until something is selected
         self.buttons['remove']['state'] = DISABLED
@@ -1117,30 +1135,6 @@ class BatchCombinedFrame(Frame):
                                                         volumes, flyTrackData)
                 flyCombinedData_to_hdf5(flyCombinedData)
 
-    # # ---------------------------------------------------------------------
-    # # plot distance traveled aligned to meal bout
-    # # ---------------------------------------------------------------------
-    # def plot_meal_aligned_dist(self):
-    #     batch_list = self.listbox.get(0, END)
-    #     if len(batch_list) < 1:
-    #         tkMessageBox.showinfo(title='Error',
-    #                               message='Add data to batch box for batch analysis')
-    #         return
-    #     else:
-    #         fig = plot_bout_aligned_var(batch_list, var='dist_mag')
-    #
-    # # ---------------------------------------------------------------------
-    # # plot velocity aligned to meal bout
-    # # ---------------------------------------------------------------------
-    # def plot_meal_aligned_vel(self):
-    #     batch_list = self.listbox.get(0, END)
-    #     if len(batch_list) < 1:
-    #         tkMessageBox.showinfo(title='Error',
-    #                               message='Add data to batch box for batch analysis')
-    #         return
-    #     else:
-    #         fig = plot_bout_aligned_var(batch_list, var='vel_mag')
-
     # ---------------------------------------------------------------------
     # plot channel (feeding) data summary
     # ---------------------------------------------------------------------
@@ -1214,44 +1208,79 @@ class BatchCombinedFrame(Frame):
     # ---------------------------------------------------------------------
     # plot XY trajectory for flies after a given meal
     # ---------------------------------------------------------------------
-    def plot_post_meal_xy_batch(self, root):
+    def plot_post_meal_data_batch(self, root, varx='xcm_smooth', vary='ycm_smooth', data_name='XY',
+                                  x_label='X Position (cm)', y_label='Y Position (cm)', x_lim=[-0.4, 0.4],
+                                  y_lim=[-0.4, 0.4], init_vals=[1, 0, 10], axis_equal_flag=True,
+                                  axis_tight_flag=False):
         batch_list = self.listbox.get(0, END)
         if len(batch_list) < 1:
             tkMessageBox.showinfo(title='Error', message='Add data to batch box for batch analysis')
             return
         else:
+            # --------------------------------------------------------------------------
             # get plot options from user using pop-up window with entry boxes
             options_entry_list = ['Meal Number', 'Time before meal end (s)', 'Time after meal end (s)']
-            options_init_vals = [1, 0, 10]
+            options_init_vals = init_vals
+            options_chkbtn_list = ['Save data output?']
             options_popup = myEntryOptions(root.master, root, entry_list=options_entry_list,
-                                           title_str='Post-meal XY Plot Options', init_vals=options_init_vals)
+                                           title_str='Post-meal {} Plot Options'.format(data_name),
+                                           init_vals=options_init_vals,
+                                           chkbtn_list=options_chkbtn_list)
+
+            # wait for user input before preceding
             options_popup.wait_window()
 
+            # ------------------------------------------------------------------------------------
             # extract param values from pop-up window (which should have been sent to "root")
             try:
                 meal_num = int(root.popup_entry_values[options_entry_list[0]])
                 window_left_sec = float(root.popup_entry_values[options_entry_list[1]])
                 window_right_sec = float(root.popup_entry_values[options_entry_list[2]])
+                options_save_flag = root.popup_chkbtn_values[options_chkbtn_list[0]]
             except (AttributeError, KeyError):
                 tkMessageBox.showinfo(title='Error', message='No values selected for plot params')
                 return
 
+            # --------------------------------------------------------------------------------------
+            # if we're saving results, request filename from user
+            if options_save_flag:
+                prompt_str = "Select save filename for meal-aligned radial distance"
+                xlsx_filename = tkFileDialog.asksaveasfilename(defaultextension=".xlsx", title=prompt_str)
+
+                # check that we got a valid filename
+                if not xlsx_filename:
+                    print('Invalid save name')
+                    options_save_flag = False
+
+            # --------------------------------------------------------------------------------------
             # make meal indexing more intuitive
             if meal_num > 0:
                 meal_num = meal_num - 1
 
-            # make plot
-            fig, ax = plot_bout_aligned_var(batch_list, varx='xcm_smooth', vary='ycm_smooth',
-                                            window_left_sec=window_left_sec, window_right_sec=window_right_sec,
-                                            meal_num=meal_num)
+            # run plot function
+            fig, ax = plot_bout_aligned_var(batch_list, varx=varx, vary=vary, window_left_sec=window_left_sec,
+                                            window_right_sec=window_right_sec, meal_num=meal_num,
+                                            save_flag=options_save_flag, save_filename=xlsx_filename,
+                                            varx_name=x_label, vary_name=y_label)
 
+            # -----------------------------------
             # modify axis
-            ax.set_aspect('equal', 'box')
-            ax.set_xlim([-0.4, 0.4])
-            ax.set_ylim([-0.4, 0.4])
-            ax.set_ylabel('Y Position (cm)')
-            ax.set_xlabel('X Position (cm)')
+            # square axis (good for XY)?
+            if axis_equal_flag:
+                ax.set_aspect('equal', 'box')
 
+            # tight axes?
+            if axis_tight_flag:
+                ax.autoscale(enable=True, axis='both', tight=True)
+
+            # apply use-supplied x and y limits if provided
+            if len(x_lim) > 1:
+                ax.set_xlim(x_lim)
+            if len(y_lim) > 1:
+                ax.set_ylim(y_lim)
+
+            # try to keep labels from being cut off
+            fig.tight_layout()
     # ------------------------------------------------------------------------
     # plot radial distance as a function of time for flies after a given meal
     # -------------------------------------------------------------------------
@@ -1276,7 +1305,6 @@ class BatchCombinedFrame(Frame):
                 window_left_sec = float(root.popup_entry_values[options_entry_list[1]])
                 window_right_sec = float(root.popup_entry_values[options_entry_list[2]])
                 options_save_flag = root.popup_chkbtn_values[options_chkbtn_list[0]]
-                # print(options_save_flag)
             except (AttributeError, KeyError):
                 tkMessageBox.showinfo(title='Error', message='No values selected for plot params')
                 return
@@ -1298,7 +1326,7 @@ class BatchCombinedFrame(Frame):
             # make plot
             fig, ax = plot_bout_aligned_var(batch_list, varx='t', vary='dist_mag',
                                             window_left_sec=window_left_sec, window_right_sec=window_right_sec,
-                                            meal_num=meal_num, saveFlag=options_save_flag, save_filename=xlsx_filename)
+                                            meal_num=meal_num, save_flag=options_save_flag, save_filename=xlsx_filename)
 
             # modify axis
             # ax.set_aspect('equal', 'box')

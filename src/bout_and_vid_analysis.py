@@ -30,6 +30,7 @@ from v_expresso_image_lib import (visual_expresso_tracking_main, process_visual_
 import ast
 import csv
 from openpyxl import Workbook
+from openpyxl.utils import get_column_letter
 
 # -----------------------------------------------
 # define some useful dictionaries/lists
@@ -666,30 +667,31 @@ def get_meal_aligned_data(h5_fn, var, window_left_sec=0, window_right_sec=10, me
 # ---------------------------------------------------------------------------------------------
 # function to plot feeding-bout-end aligned data (old -- tries to group data, need to update)
 def plot_bout_aligned_var(basic_entries, varx='xcm_smooth', vary='ycm_smooth', window_left_sec=0, window_right_sec=300,
-                          meal_num=0, figsize=(6, 6), saveFlag=False, save_filename=None):
+                          meal_num=0, figsize=(6, 6), save_flag=False, save_filename=None, varx_name=None,
+                          vary_name=None):
     # suffix for filename with both feeding and tracking data
     data_suffix = '_COMBINED_DATA.hdf5'
 
     # define colormap for plot
-    #colors = plt.cm.Set1(range(len(basic_entries)))
+    # colors = plt.cm.Set1(range(len(basic_entries)))
     plt.rcParams["axes.prop_cycle"] = plt.cycler("color", plt.cm.Set1.colors)
 
     # ---------------------------------------------------------------
     # initialize save output
     # ---------------------------------------------------------------
     # for saving options, first check that we have a valid save name
-    if saveFlag and not save_filename:
-        saveFlag = False
+    if save_flag and not save_filename:
+        save_flag = False
 
     # but, if we do have a valid savename, create xlsx workbook
-    if saveFlag:
+    if save_flag:
         # initialize workbook and sheet
         wb = Workbook()
         ws = wb.active
         ws.title = vary + " vs " + varx
 
         # write meal number in first row
-        meal_num_heading = ['Meal Number = ', str(meal_num)]
+        meal_num_heading = ['Meal Number:', str(meal_num + 1)]  # NB: adding one to account for Python indexing
         ws.append(meal_num_heading)
 
         # write filenames in second row
@@ -700,7 +702,10 @@ def plot_bout_aligned_var(basic_entries, varx='xcm_smooth', vary='ycm_smooth', w
         ws.append(fn_heading)
 
         # write variable names in third row
-        var_heading = len(basic_entries)*[varx, vary]
+        if varx_name and vary_name:
+            var_heading = len(basic_entries) * [varx_name, vary_name]
+        else:
+            var_heading = len(basic_entries)*[varx, vary]
         ws.append(var_heading)
 
         # initialize storage for all data
@@ -732,7 +737,7 @@ def plot_bout_aligned_var(basic_entries, varx='xcm_smooth', vary='ycm_smooth', w
         ax.plot(data_x, data_y, '-', label=ent_id, markersize=2, linewidth=0.75)
 
         # if we're saving data, add current x,y data to "all" list
-        if saveFlag:
+        if save_flag:
             # NB: appending x then y in this order so we can have an x and y column for each file
             data_all.append(data_x)
             data_all.append(data_y)
@@ -744,12 +749,18 @@ def plot_bout_aligned_var(basic_entries, varx='xcm_smooth', vary='ycm_smooth', w
     # show figure
     fig.show()
 
+    # set axis labels, if they exist
+    if varx_name:
+        ax.set_xlabel(varx_name)
+    if vary_name:
+        ax.set_ylabel(vary_name)
+
     # make plot window tight
-    plt.tight_layout()
+    fig.tight_layout()
 
     # --------------------------------------------------------------------
     # if saving, write combined data to workbook
-    if saveFlag:
+    if save_flag:
         # convert list to numpy array and take transpose so we have N x M matrix, where N = # data points, M = # files
         data_all = np.transpose(np.vstack(data_all))
 
@@ -757,6 +768,10 @@ def plot_bout_aligned_var(basic_entries, varx='xcm_smooth', vary='ycm_smooth', w
         for row in data_all:
             ws.append(list(row))
 
+        # set column width to be wider (more readable)
+        for col in ws.columns:
+            col_str = get_column_letter(col[0].column)
+            ws.column_dimensions[col_str].width = 20
         # save workbook
         wb.save(save_filename)
 
@@ -1221,9 +1236,7 @@ def save_comb_summary_hdf5(entry_list, h5_filename,
             # (before and after first meal), and distance walked prior to
             # first meal
             if not justTrackFlag:
-                dwell_times, censoring = get_dwell_time(bouts, channel_t,
-                                                        dist_mag, vid_t,
-                                                        fz_rad=fz_rad)
+                dwell_times, censoring = get_dwell_time(bouts, channel_t, dist_mag, vid_t, fz_rad=fz_rad)
 
                 if (num_meals < 1):
                     pre_meal_pathlength = cum_dist_max

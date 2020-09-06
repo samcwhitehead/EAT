@@ -35,6 +35,7 @@ import pandas as pd
 import csv
 # from statsmodels.stats.multicomp import (MultiComparison, pairwise_tukeyhsd)
 import scikit_posthocs as sp
+import scipy.stats as ss
 from openpyxl import load_workbook
 from scipy.stats import mstats
 from sklearn.utils import shuffle
@@ -234,6 +235,14 @@ def lighten_rgb_color(color, amount=0.5):
     c = colorsys.rgb_to_hls(color[0], color[1], color[2])
     return colorsys.hls_to_rgb(c[0], 1 - amount * (1 - c[1]), c[2])
 
+# ---------------------------------------------------------------
+# load summary data from a XLSX file
+# def load_summary_xlsx():
+
+
+# ---------------------------------------------------------------
+# load summary data from a HDF5 file
+# def load_summary_hdf5():
 
 # =============================================================================
 """
@@ -477,9 +486,8 @@ class PlotOptions(Frame):
     def __init__(self, parent, col=0, row=0):
         Frame.__init__(self, parent.master)
 
-        # options for plot/stats types
+        # options for plot types
         self.plot_var_choices = parent.plot_var_list
-        self.stats_type_choices = parent.stats_type_list
 
         # ------------------------------------
         # dropdown menu to select plot type
@@ -501,8 +509,8 @@ class PlotOptions(Frame):
         self.plot_option_menu.grid(column=col, row=row + 1, padx=2, pady=2,
                                    sticky=(N, S, E, W))
 
-        # -----------------------------------------
-        # dropdown menu to select statistics test
+        # ---------------------------------------------------
+        # box showing current stats test
         self.stats_type_frame = Frame(parent.master)
         self.stats_type_frame.grid(column=col, row=row + 2, sticky=(N, S, E, W))
         # label
@@ -513,12 +521,8 @@ class PlotOptions(Frame):
                                    sticky=(N, S, E, W))
 
         # initialize menu and populate with choices
-        self.stats_option_menu = OptionMenu(self.stats_type_frame,
-                                            parent.statsType,
-                                            self.stats_type_choices[0],
-                                            *self.stats_type_choices)
-        self.stats_option_menu.grid(column=col, row=row + 1, padx=2, pady=2,
-                                    sticky=(N, S, E, W))
+        self.stats_curr_label = Label(self.stats_type_frame, textvariable=parent.statsTypeCurr)
+        self.stats_curr_label.grid(column=col, row=row + 1, padx=2, pady=2, sticky=(N, S, E, W))
 
         # -----------------------------------------
         # button to update plot window
@@ -535,10 +539,19 @@ class PlotOptions(Frame):
                                       padx=2, pady=2, sticky=(N, S, E, W))
 
         # ---------------------------------------------------------------------
-        # callback functions
+        # callback functions for dropdown menu
         def update_plot_var(*args):
             """ function to update selection of plot variable """
-            # print(parent.plotVar.get())
+            # get name of current data (to check if we're working with time series values or not)
+            plot_var = parent.plotVar.get()
+            timeSeriesFlag = ("Time Series" in plot_var)
+
+            # set stats type depending on data selection
+            if timeSeriesFlag:
+                stats_type = 'Time Series Permutation'
+            else:
+                stats_type = 'Kruskal Wallis + Dunn'
+            parent.statsTypeCurr.set(stats_type)
 
         def update_stats_type(*args):
             """ function to update selection of stats type """
@@ -547,7 +560,7 @@ class PlotOptions(Frame):
         # ---------------------------------------------------------
         # bind plot and stats type variables to dropdown menu
         parent.plotVar.trace("w", update_plot_var)
-        parent.statsType.trace("w", update_stats_type)
+        # parent.statsType.trace("w", update_stats_type)
 
 
 # =============================================================================
@@ -591,10 +604,15 @@ class SaveOptions(Frame):
     def save_stats(self, parent):
         """ function to save current stats output """
         if (parent.statsCalcFlag.get()):
-            statsType = parent.statsTypeCurr
+            statsType = parent.statsTypeCurr.get()
             stats_save_fn = tkFileDialog.asksaveasfilename(defaultextension=".csv", initialfile=statsType,
                                                            title='Select save filename')
-            parent.statsCurr.to_csv(stats_save_fn)
+
+            with open(stats_save_fn, 'w') as f:
+                f.write(statsType + "\n")
+                if parent.omnibusStatsCurr:
+                    f.write("Omnibus test p value: {} \n".format(parent.omnibusStatsCurr))
+                parent.statsCurr.to_csv(f,line_terminator='\n')
 
         else:
             print('Need to recalculate stats')
@@ -639,15 +657,6 @@ class postProcess:
 
         self.plot_var_list = plot_var_list
 
-        # hard code in stats options here (for now)
-        self.statsType = StringVar(master)
-        self.stats_type_list = ['Anderson-Darling', 'Conover', 'Mann-Whitney',
-                                'Tukey HSD', 'Wilcoxon', 'Time Series Permutation']
-
-        # just initialize with first entry
-        # self.plotVar.set(self.plot_var_list[0])
-        # self.statsType.set(self.stats_type_list[0])
-
         # -------------------------------------------
         # do we currently have a plot displayed?
         self.displayOnFlag = BooleanVar()
@@ -656,6 +665,15 @@ class postProcess:
         # do we currently have stats calculated?
         self.statsCalcFlag = BooleanVar()
         self.statsCalcFlag.set(False)
+
+        # -------------------------------------------
+        # initialize stats storage array
+        self.statsCurr = None
+        self.omnibusStatsCurr = None
+
+        # intialize string that will describe the current statistical test
+        self.statsTypeCurr = StringVar()
+        self.statsTypeCurr.set('Kruskal Wallis + Dunn')
 
         # --------------------------------------------
         # gui basics
@@ -683,11 +701,6 @@ class postProcess:
                                    padx=10, pady=5, sticky=N)
         self.fig.tight_layout()
         self.ax.set_axis_off()
-
-        # -------------------------------------------
-        # initialize stats storage array
-        self.statsCurr = None
-        self.statsTypeCurr = None
 
         # --------------------------------------------
         # extra bit for quit command
@@ -760,20 +773,13 @@ class postProcess:
 
         # check if we're plotting 'mealwise' or 'summary' data 
         # (this determines how we read xlsx file)
-        if "Mealwise" in plot_var:
-            mealwiseFlag = True
-        else:
-            mealwiseFlag = False
+        mealwiseFlag = ("Mealwise" in plot_var)
 
         # also check if data is of 'time series' format -- if so, we can't read
         # it from xlsx, and we need make adjustments
-        if "Time Series" in plot_var:
-            timeSeriesFlag = True
-            errStrTS = 'Time series data not contained in {} -- skipping'
-        else:
-            timeSeriesFlag = False
+        timeSeriesFlag = ("Time Series" in plot_var)
 
-            # read data filenames/user-assigned data names from entries
+        # read data filenames/user-assigned data names from entries
         data_fn_list = [s.split(' -- ')[1] for s in data_entry_list]
         data_names_all = [s.split(' -- ')[0] for s in data_entry_list]
 
@@ -797,7 +803,7 @@ class postProcess:
                 # first check if we're trying to read time series -- this will 
                 # not work, so we can skip
                 if timeSeriesFlag:
-                    print(errStrTS.format(fn))
+                    print('Time series data not contained in {} -- skipping'.format(fn))
                     continue
 
                 # load in full xlsx workbook
@@ -816,7 +822,7 @@ class postProcess:
                         sheet_index = wb.sheetnames.index('Summary')
                         # prefixStr = ''
                     except ValueError:
-                        print('Error: no Events data in file')
+                        print('Error: no Summary data in file')
                         continue
 
                 # set selected sheet to active
@@ -849,6 +855,43 @@ class postProcess:
                 data_curr = np.full((max_row - 1, 1), np.nan)
                 for i in range(1, max_row):
                     data_curr[i - 1] = sheet.cell(row=i + 1, column=col_idx + 1).value
+
+                # when reading from cells, each cell gives an array. want just entries
+                data_curr = np.asarray([d[0] for d in data_curr])
+
+                # if collecting mealwise data, need to average over each fly. to do so, get meal numbers, and find where
+                # they have a skip
+                if mealwiseFlag:
+                    # get column index for meal number
+                    meal_num_col_idx = sheet_headers.index("Mealwise Meal Number")
+
+                    # read out meal numbers
+                    meal_numbers = np.full((max_row - 1, 1), np.nan)
+                    for i in range(1, max_row):
+                        meal_numbers[i - 1] = sheet.cell(row=i + 1, column=meal_num_col_idx + 1).value
+
+                    # when reading from cells, each cell gives an array. want just entries
+                    meal_numbers = [mn[0] for mn in meal_numbers]
+
+                    # find skips in meal number
+                    meal_num_diff = np.diff(meal_numbers)
+
+                    # wrangle this into idx to loop over
+                    fly_switch_idx = np.where(meal_num_diff != 1)[0] + 1
+                    fly_switch_idx = fly_switch_idx.tolist()
+                    fly_switch_idx.insert(0, 0)
+                    fly_switch_idx.append(len(meal_numbers))
+
+                    # loop over switching idx
+                    fly_means = []
+                    for jth in range(len(fly_switch_idx)-1):
+                        idx1 = fly_switch_idx[jth]
+                        idx2 = fly_switch_idx[jth+1]
+                        fly_means.append(np.nanmean(data_curr[idx1:idx2]))
+
+                    # overwrite "data_curr" with fly-averaged data
+                    data_curr = np.asarray(fly_means)
+
 
                 # remove non-eating flies, if selected, as well as nan values
                 if onlyEatersFlag and not mealwiseFlag:
@@ -935,7 +978,7 @@ class postProcess:
 
                             # apparently our check above does not guarantee scalar data, so perform another check
                             if isinstance(h5_dat, np.ndarray) and not timeSeriesFlag:
-                                data_curr = data_curr + h5_dat.tolist()
+                                data_curr.append(np.nanmean(h5_dat))
                             else:
                                 data_curr.append(h5_dat)
                         else:
@@ -946,8 +989,8 @@ class postProcess:
                             if timeSeriesFlag:
                                 data_curr.append(h5_dat)
                             else:
-                                # if it's mealwise data, want to flatten input and add to list
-                                data_curr = data_curr + h5_dat.tolist()
+                                # if it's mealwise data, want to take mean and then add to list
+                                data_curr.append(np.nanmean(h5_dat))
                         # data_curr.append(h5_dat)
 
                         # if time series case, also grab time
@@ -1017,12 +1060,9 @@ class postProcess:
         plot_var = self.plotVar.get()
 
         # see if we're working with time series data
-        if "Time Series" in plot_var:
-            timeSeriesFlag = True
-        else:
-            timeSeriesFlag = False
+        timeSeriesFlag = ("Time Series" in plot_var)
 
-            # clear previous plot
+        # clear previous plot
         self.ax.cla()
 
         # -----------------------------------------
@@ -1125,45 +1165,20 @@ class postProcess:
             print('Need to compare at least two data sets')
             return
 
-        # get name of current data (to check if we're working with time series values or not)
-        plot_var = self.plotVar.get()
-        timeSeriesFlag = ("Time Series" in plot_var)
+        # get current statistical test type
+        stats_type = self.statsTypeCurr.get()
 
-        # get type of stats test
-        stats_type = self.statsType.get()
+        # ------------------------------------------------------------------
+        # run test depending on data type
+        if stats_type == 'Kruskal Wallis + Dunn':
+            _, p_omnibus = ss.kruskal(*data_list)
+            print("p value from Kruskal-Wallis test: {}".format(p_omnibus))
+            pval_mat = sp.posthoc_dunn(data_list, p_adjust=p_adjust_str)
 
-        # if we're using time series data, make sure selected test is 'Time Series Shuffle'
-        incompatibleFlag = (timeSeriesFlag and not (stats_type == 'Time Series Permutation')) or \
-                           (not timeSeriesFlag and (stats_type == 'Time Series Permutation'))
-        if incompatibleFlag:
-            print('Cannot use {} test with {} data'.format(stats_type, plot_var))
-            return
+        elif stats_type == 'Time Series Permutation':
+            # no omnibus test (like ANOVA or Kruskal-Wallis) so return None for p_omnibus
+            p_omnibus = None
 
-        # ------------------------------------------------------------------------
-        # run stats test (plan is to fill this in with more test as time goes on)
-        if (stats_type == 'Anderson-Darling'):
-            pval_mat = sp.posthoc_anderson(data_list, p_adjust=p_adjust_str)
-        elif (stats_type == 'Conover'):
-            pval_mat = sp.posthoc_conover(data_list, p_adjust=p_adjust_str)
-        elif (stats_type == 'Mann-Whitney'):
-            pval_mat = sp.posthoc_mannwhitney(data_list, p_adjust=p_adjust_str)
-        # elif (stats_type == 'Tukey'):
-        #     # convert data to array
-        #    (data, labels) = convert_data_for_stats(data_list, data_names)
-        #    pval_mat = sp.posthoc_tukey(data)
-        elif (stats_type == 'Tukey HSD'):
-            # convert data to array
-            (data, labels) = convert_data_for_stats(data_list, data_names)
-            pval_mat = sp.posthoc_tukey_hsd(data, labels)
-            print('NB: for Tukey HSD, 1 = significant, 0 = not significant,' +
-                  'and -1 = diagonal element at alpha = 0.05')
-        elif (stats_type == 'Wilcoxon'):
-            try:
-                pval_mat = sp.posthoc_wilcoxon(data_list, p_adjust=p_adjust_str)
-            except ValueError:
-                print('Unequal N -- cannot use Wilcoxon test')
-                return
-        elif (stats_type == 'Time Series Permutation'):
             # since using time series data, need to align data sets
             data_align, t_align = align_time_series_data(data_list, t_list)
 
@@ -1197,8 +1212,8 @@ class postProcess:
         # add current stats to GUI structure
         self.statsCalcFlag.set(True)
         self.statsCurr = pval_mat
-        self.statsTypeCurr = stats_type
-
+        self.statsTypeCurr.set(stats_type)
+        self.omnibusStatsCurr = p_omnibus
     # =====================================================================
     """ TkDND functions """
     if TKDND_FLAG:
