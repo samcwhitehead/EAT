@@ -953,7 +953,8 @@ class BatchCombinedFrame(Frame):
                                                                                     y_lim=[-0.4, 0.4],
                                                                                     init_vals=[1, 0, 10],
                                                                                     axis_equal_flag=True,
-                                                                                    axis_tight_flag=False)
+                                                                                    axis_tight_flag=False,
+                                                                                    one_x_column_flag=False)
         self.buttons['plot_dist_mag']['command'] = lambda: self.plot_post_meal_data_batch(root, varx='t',
                                                                                           vary='dist_mag',
                                                                                           data_name='Radial Dist.',
@@ -963,7 +964,8 @@ class BatchCombinedFrame(Frame):
                                                                                           y_lim=[],
                                                                                           init_vals=[1, 0, 100],
                                                                                           axis_equal_flag=False,
-                                                                                          axis_tight_flag=True)
+                                                                                          axis_tight_flag=True,
+                                                                                          one_x_column_flag=True)
 
         # switch buttons to 'disabled' until something is selected
         self.buttons['remove']['state'] = DISABLED
@@ -1211,7 +1213,7 @@ class BatchCombinedFrame(Frame):
     def plot_post_meal_data_batch(self, root, varx='xcm_smooth', vary='ycm_smooth', data_name='XY',
                                   x_label='X Position (cm)', y_label='Y Position (cm)', x_lim=[-0.4, 0.4],
                                   y_lim=[-0.4, 0.4], init_vals=[1, 0, 10], axis_equal_flag=True,
-                                  axis_tight_flag=False):
+                                  axis_tight_flag=False, one_x_column_flag=False):
         batch_list = self.listbox.get(0, END)
         if len(batch_list) < 1:
             tkMessageBox.showinfo(title='Error', message='Add data to batch box for batch analysis')
@@ -1263,7 +1265,7 @@ class BatchCombinedFrame(Frame):
             fig, ax = plot_bout_aligned_var(batch_list, varx=varx, vary=vary, window_left_sec=window_left_sec,
                                             window_right_sec=window_right_sec, meal_num=meal_num,
                                             save_flag=options_save_flag, save_filename=xlsx_filename,
-                                            varx_name=x_label, vary_name=y_label)
+                                            varx_name=x_label, vary_name=y_label,one_x_column_flag=one_x_column_flag)
 
             # -----------------------------------
             # modify axis

@@ -668,7 +668,7 @@ def get_meal_aligned_data(h5_fn, var, window_left_sec=0, window_right_sec=10, me
 # function to plot feeding-bout-end aligned data (old -- tries to group data, need to update)
 def plot_bout_aligned_var(basic_entries, varx='xcm_smooth', vary='ycm_smooth', window_left_sec=0, window_right_sec=300,
                           meal_num=0, figsize=(6, 6), save_flag=False, save_filename=None, varx_name=None,
-                          vary_name=None):
+                          vary_name=None, one_x_column_flag=False):
     # suffix for filename with both feeding and tracking data
     data_suffix = '_COMBINED_DATA.hdf5'
 
@@ -683,36 +683,12 @@ def plot_bout_aligned_var(basic_entries, varx='xcm_smooth', vary='ycm_smooth', w
     if save_flag and not save_filename:
         save_flag = False
 
-    # but, if we do have a valid savename, create xlsx workbook
+    # but, if we do have a valid savename, initialize storage for all data
     if save_flag:
-        # initialize workbook and sheet
-        wb = Workbook()
-        ws = wb.active
-        ws.title = vary + " vs " + varx
-
-        # write meal number in first row
-        meal_num_heading = ['Meal Number:', str(meal_num + 1)]  # NB: adding one to account for Python indexing
-        ws.append(meal_num_heading)
-
-        # write filenames in second row
-        fn_heading = []
-        for ent in basic_entries:
-            fn_heading.append(os.path.basename(ent))
-            fn_heading.append(' ')
-        ws.append(fn_heading)
-
-        # write variable names in third row
-        if varx_name and vary_name:
-            var_heading = len(basic_entries) * [varx_name, vary_name]
-        else:
-            var_heading = len(basic_entries)*[varx, vary]
-        ws.append(var_heading)
-
-        # initialize storage for all data
         data_all = []
-
+        has_data_flag = []
     # --------------------------------------------
-    # intialize figure and axis
+    # initialize figure and axis
     # fig, ax = plt.subplots(1, 1, figsize=figsize)
     fig, ax = plt.subplots(1, 1)
 
@@ -731,6 +707,9 @@ def plot_bout_aligned_var(basic_entries, varx='xcm_smooth', vary='ycm_smooth', w
         # make sure we got data for both x and y
         if data_x is None or data_y is None:
             print('Failed to load data for {} -- skipping'.format(hdf5_filename))
+            if save_flag:
+                # if saving data, need to keep track of empty array elements
+                has_data_flag.append(False)
             continue
 
         # plot data on current axes
@@ -741,7 +720,7 @@ def plot_bout_aligned_var(basic_entries, varx='xcm_smooth', vary='ycm_smooth', w
             # NB: appending x then y in this order so we can have an x and y column for each file
             data_all.append(data_x)
             data_all.append(data_y)
-
+            has_data_flag.append(True)
     # --------------------------------------------------------------------
     # axis properties (once plotting has finished)
     plt.legend(loc='upper left', bbox_to_anchor=(1, 1.05), fontsize='x-small')
@@ -761,9 +740,66 @@ def plot_bout_aligned_var(basic_entries, varx='xcm_smooth', vary='ycm_smooth', w
     # --------------------------------------------------------------------
     # if saving, write combined data to workbook
     if save_flag:
-        # convert list to numpy array and take transpose so we have N x M matrix, where N = # data points, M = # files
-        data_all = np.transpose(np.vstack(data_all))
+        # initialize workbook and sheet
+        wb = Workbook()
+        ws = wb.active
+        ws.title = vary + " vs " + varx
 
+        # write meal number in first row
+        meal_num_heading = ['Meal Number:', str(meal_num + 1)]  # NB: adding one to account for Python indexing
+        ws.append(meal_num_heading)
+
+        # remove files in which there is no data (valid entries are ones with data)
+        # basic_entries_valid = [ent for (kth, ent) in enumerate(basic_entries) if has_data_flag[kth]]
+        basic_entries_valid = [ent for (tf, ent) in zip(has_data_flag, basic_entries) if tf]
+
+        # from here, switch how we write to file depending on whether or not we want 2 columns per file, or a single x
+        # data column and then a 1 y data column per file
+        if one_x_column_flag:
+            # -----------------------------------------------------------------------------
+            # is this case, each file gets a "y" column, and there's one global "x" column
+            # -----------------------------------------------------------------------------
+            # write filenames in second row (with a spacer at the beginning for "x" column)
+            fn_heading = []
+            fn_heading.append(' ')
+            for ent in basic_entries_valid:
+                fn_heading.append(os.path.basename(ent))
+            ws.append(fn_heading)
+
+            # write variable names in third row
+            if varx_name and vary_name:
+                var_heading = [varx_name] + len(basic_entries_valid) * [vary_name]
+            else:
+                var_heading = [varx] + len(basic_entries_valid) * [vary]
+            ws.append(var_heading)
+
+            # convert list to numpy array and take transpose so we have N x (M+1) matrix, where N = # data points, M = # files
+            data_all = [data_all[0]] + data_all[1::2]
+            data_all = np.transpose(np.vstack(data_all))
+        else:
+            # -----------------------------------------------------------------------------
+            # in this case, each file gets a "x" and "y" column
+            # -----------------------------------------------------------------------------
+            # write filenames in second row (with a spacer in between each)
+            fn_heading = []
+            for ent in basic_entries_valid:
+                fn_heading.append(os.path.basename(ent))
+                fn_heading.append(' ')
+            ws.append(fn_heading)
+
+            # write variable names in third row
+            if varx_name and vary_name:
+                var_heading = len(basic_entries_valid) * [varx_name, vary_name]
+            else:
+                var_heading = len(basic_entries_valid) * [varx, vary]
+            ws.append(var_heading)
+
+            # convert list to numpy array and take transpose so we have N x 2M matrix, where N = # data points, M = # files
+            data_all = np.transpose(np.vstack(data_all))
+
+        # ---------------------------------------------------
+        # the following should work for either column format
+        # ---------------------------------------------------
         # loop over rows and write to file
         for row in data_all:
             ws.append(list(row))
@@ -771,7 +807,7 @@ def plot_bout_aligned_var(basic_entries, varx='xcm_smooth', vary='ycm_smooth', w
         # set column width to be wider (more readable)
         for col in ws.columns:
             col_str = get_column_letter(col[0].column)
-            ws.column_dimensions[col_str].width = 20
+            ws.column_dimensions[col_str].width = 22
         # save workbook
         wb.save(save_filename)
 
