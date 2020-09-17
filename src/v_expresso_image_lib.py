@@ -637,16 +637,14 @@ def get_cm(filename, bg, r, tracking_params=trackingParams, mean_intensity=130.0
         # use a bounding box to mask image?
         if bbox:
             im_minus_bg_crop = get_cropped_im(im_minus_bg, bbox)
-            otsu_thresh, _ = cv2.threshold(im_minus_bg_crop.astype('uint8'), \
-                                           0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            otsu_thresh, _ = cv2.threshold(im_minus_bg_crop.astype('uint8'), 0, 255,
+                                           cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         else:
-            otsu_thresh, _ = cv2.threshold(im_minus_bg.astype('uint8'), \
-                                           0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            otsu_thresh, _ = cv2.threshold(im_minus_bg.astype('uint8'), 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 
         # now apply threshold
-        _, th_otsu = cv2.threshold(im_minus_bg.astype('uint8'), \
-                                   np.max([otsu_thresh, min_thresh]), \
-                                   255, cv2.THRESH_BINARY)
+        _, th_otsu = cv2.threshold(im_minus_bg.astype('uint8'), np.max([otsu_thresh, min_thresh]), 255,
+                                   cv2.THRESH_BINARY)
 
         # morphologically open image?
         th_otsu = cv2.morphologyEx(th_otsu, cv2.MORPH_OPEN, se)
@@ -1169,7 +1167,7 @@ def filter_fly_trajectory(xcm, ycm, t, PARAMS=trackingParams, filt_order=4, filt
 
     return xcm_filt, ycm_filt, interp_idx
 
-
+# -------------------------------------------------
 # ------------------------------------------------------------------------------
 def process_visual_expresso(DATA_PATH, DATA_FILENAME, PARAMS=trackingParams, SAVE_DATA_FLAG=False, DEBUG_FLAG=False):
     SAVE_PATH = DATA_PATH

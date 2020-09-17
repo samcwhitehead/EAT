@@ -7,7 +7,7 @@ Created on Sat Jul 04 11:37:30 2020
 
 import matplotlib
 
-# matplotlib.use('TkAgg')
+matplotlib.use('TkAgg')
 # import matplotlib.pyplot as plt
 matplotlib.rcParams['pdf.fonttype'] = 42
 matplotlib.rcParams['ps.fonttype'] = 42

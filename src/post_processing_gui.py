@@ -122,6 +122,7 @@ def align_time_series_data(data_list, t_list):
 
     return data_list_out, t_list_out
 
+
 # -----------------------------------------------------------------------
 # helper function to make shuffling data easier (for hypothesis testing)
 def my_shuffle(x, N, rand_state=None):
@@ -134,6 +135,7 @@ def my_shuffle(x, N, rand_state=None):
 
     # return arrays
     return a_out, b_out
+
 
 # ---------------------------------------------------------------
 # hypothesis testing using shuffling (resampling)
@@ -186,6 +188,7 @@ def pairwise_shuffle_test(a, b, func=lambda x, y: np.nanmean(np.nanmean(x,axis=0
     # return pValue
     return pVal
 
+
 # ---------------------------------------------------------------
 # run pairwise permutation tests on multiple (>=2) datasets
 def my_shuffle_test(data_list, func=lambda x, y: np.nanmean(np.nanmean(x,axis=0) - np.nanmean(y,axis=0)), N_perm=5000,
@@ -216,6 +219,8 @@ def my_shuffle_test(data_list, func=lambda x, y: np.nanmean(np.nanmean(x,axis=0)
 
     # return dataframe
     return pval_df
+
+
 # ---------------------------------------------------------------
 # lighten or darken a color
 def lighten_rgb_color(color, amount=0.5):
@@ -237,13 +242,254 @@ def lighten_rgb_color(color, amount=0.5):
 
 # ---------------------------------------------------------------
 # load summary data from a XLSX file
-# def load_summary_xlsx():
+def load_summary_xlsx(fn, plot_var, onlyEatersFlag=False):
+    # ------------------------------------------------------
+    # initialize empty lists for output
+    data_curr = []  # data list from current file
+    t_curr = []  # time list from current file (NB: can't get time series from xlsx, so just make place holder)
+    # -------------------------------------------------------
+    # check if we're loading mealwise data or per-fly data
+    mealwiseFlag = ("Mealwise" in plot_var)
+
+    # also check if data is of 'time series' format -- if so, we can't read
+    # it from xlsx, and we need make adjustments
+    timeSeriesFlag = ("Time Series" in plot_var)
+
+    # ---------------------------------------------------------
+    # first check if we're trying to read time series -- this will
+    # not work, so we can skip
+    if timeSeriesFlag:
+        print('Time series data not contained in {} -- skipping'.format(fn))
+        return data_curr, t_curr
+
+    # --------------------------------------
+    # load in full xlsx workbook
+    wb = load_workbook(fn)
+
+    # restrict attention to either summary or event sheet
+    if mealwiseFlag:
+        try:
+            sheet_index = wb.sheetnames.index('Events')
+            # prefixStr = 'Mealwise '
+        except ValueError:
+            print('Error: no Events data in file')
+            return data_curr, t_curr
+    else:
+        try:
+            sheet_index = wb.sheetnames.index('Summary')
+            # prefixStr = ''
+        except ValueError:
+            print('Error: no Summary data in file')
+            return data_curr, t_curr
+
+    # ------------------------------------------------
+    # set selected sheet to active
+    wb.active = sheet_index
+    sheet = wb.active
+
+    # get column headers to see which data to grab
+    sheet_headers = []
+    max_col = sheet.max_column
+    for c in range(1, max_col + 1):
+        header_str = str(sheet.cell(row=1, column=c).value)
+        # i've changed the way the columns are labeled, but for
+        # compatibility with previous analysis files, need to
+        # make sure we include 'mealwise' in name
+        if mealwiseFlag and not ("Mealwise" in header_str):
+            header_str = "Mealwise " + header_str
+        sheet_headers.append(header_str)
+
+    # -------------------------------------------------
+    # try to read data from specified column
+    try:
+        col_idx = sheet_headers.index(plot_var)
+    except ValueError:
+        print('Could not find variable {}'.format(plot_var))
+        return data_curr, t_curr
+
+    # how many rows the sheet contains
+    max_row = sheet.max_row
+
+    # grab data from that column
+    data_curr = np.full((max_row - 1, 1), np.nan)
+    for i in range(1, max_row):
+        data_curr[i - 1] = sheet.cell(row=i + 1, column=col_idx + 1).value
+
+    # when reading from cells, each cell gives an array. want just entries
+    data_curr = np.asarray([d[0] for d in data_curr])
+
+    # -------------------------------------------------------------------------------------------------------
+    # if collecting mealwise data, need to average over each fly. to do so, get meal numbers, and find where
+    # they have a skip
+    if mealwiseFlag:
+        # get column index for meal number
+        meal_num_col_idx = sheet_headers.index("Mealwise Meal Number")
+
+        # read out meal numbers
+        meal_numbers = np.full((max_row - 1, 1), np.nan)
+        for i in range(1, max_row):
+            meal_numbers[i - 1] = sheet.cell(row=i + 1, column=meal_num_col_idx + 1).value
+
+        # when reading from cells, each cell gives an array. want just entries
+        meal_numbers = [mn[0] for mn in meal_numbers]
+
+        # find skips in meal number
+        meal_num_diff = np.diff(meal_numbers)
+
+        # wrangle this into idx to loop over
+        fly_switch_idx = np.where(meal_num_diff != 1)[0] + 1
+        fly_switch_idx = fly_switch_idx.tolist()
+        fly_switch_idx.insert(0, 0)
+        fly_switch_idx.append(len(meal_numbers))
+
+        # loop over switching idx
+        fly_means = []
+        for jth in range(len(fly_switch_idx) - 1):
+            idx1 = fly_switch_idx[jth]
+            idx2 = fly_switch_idx[jth + 1]
+            fly_means.append(np.nanmean(data_curr[idx1:idx2]))
+
+        # overwrite "data_curr" with fly-averaged data
+        data_curr = np.asarray(fly_means)
+
+    # remove non-eating flies, if selected, as well as nan values
+    if onlyEatersFlag and not mealwiseFlag:
+        try:
+            num_meals_col_idx = sheet_headers.index('Number of Meals')
+            num_meals = np.full((max_row - 1, 1), np.nan)
+            for ii in range(1, max_row):
+                num_meals[ii - 1] = sheet.cell(row=ii + 1,
+                                               column=num_meals_col_idx + 1).value
+
+            num_meals = np.asarray([mn[0] for mn in num_meals])
+            ignore_idx = (num_meals < 1) | (np.isnan(data_curr))
+        except ValueError:
+            ignore_idx = np.ones_like(data_curr, dtype=bool)
+    else:
+        ignore_idx = np.isnan(data_curr) | (data_curr < 0)
+
+    data_curr = data_curr[~ignore_idx]
+
+    # -----------------------------------------
+    # return data_curr and t_curr placeholder
+    return data_curr, t_curr
 
 
 # ---------------------------------------------------------------
 # load summary data from a HDF5 file
-# def load_summary_hdf5():
+def load_summary_hdf5(fn, plot_var, onlyEatersFlag=False):
+    # ------------------------------------------------------
+    # initialize empty lists for output
+    data_curr = []  #  data list from current file
+    t_curr = []     #  time list from current file
+    # -------------------------------------------------------
+    # check if we're loading mealwise data or per-fly data
+    mealwiseFlag = ("Mealwise" in plot_var)
 
+    # also check if data is of 'time series' format -- if so, we can't read
+    # it from xlsx, and we need make adjustments
+    timeSeriesFlag = ("Time Series" in plot_var)
+
+    # ---------------------------------------------------------
+    # check if plot is in "summary" or "events" list
+    # checking dictionary keys changed between python 2 & 3
+    if sys.version_info[0] < 3:
+        summary_key_chk = summary_heading_dict.has_key(plot_var)
+        events_key_chk = events_heading_dict.has_key(plot_var)
+    else:
+        summary_key_chk = plot_var in summary_heading_dict
+        events_key_chk = plot_var in events_heading_dict
+
+    # get dataset name for current plot variable
+    if summary_key_chk:
+        dset_name = summary_heading_dict[plot_var]
+        # because h5py no longer supports .value for grabbing data,
+        # need to read out data differently if it's scalar or array
+        if timeSeriesFlag:
+            scalarFlag = False
+        else:
+            scalarFlag = True
+    elif events_key_chk:
+        dset_name = events_heading_dict[plot_var]
+        scalarFlag = False
+    else:
+        errStrH5 = 'Could not find {} data in {} -- skipping'
+        print(errStrH5.format(plot_var, fn))
+        return data_curr, t_curr
+
+    # ------------------------------------------------------------------------------
+    # read out all group keys in hdf5 file (these correspond to individual flies)
+    with h5py.File(fn, 'r') as f:
+
+        # group keys (flies) in hdf5 file
+        fly_grp_list = f.keys()
+
+        # --------------------------------------------------------------
+        # perform checks so that non-feeding data doesn't hit an error
+        # check if this data file contains eating data. if not, skip it
+        dset_chk_list = [("{}/{}".format(grp, dset_name) in f) for grp in fly_grp_list]
+        num_meals_chk_list = [("{}/{}".format(grp, 'num_meals') in f) for grp in fly_grp_list]
+        if not any(dset_chk_list):
+            print('{} does not contain {} data -- skipping'.format(fn, plot_var))
+            return data_curr, t_curr
+
+        elif not any(num_meals_chk_list) and onlyEatersFlag:
+            chkbtn_str = "Exclude flies without meals"
+            err_str = '{} does not contain meal data, and <<{}>> has been selected -- skipping'
+            print(err_str.format(os.path.normpath(fn), chkbtn_str))
+            return data_curr, t_curr
+
+        # ---------------------------------------------------------
+        # loop over groups (flies) and read out data
+        for grp in fly_grp_list:
+            # skip if fly doesn't eat and we're supposed to skip non-eating flies
+            if onlyEatersFlag or mealwiseFlag:
+                num_meals = f[grp]['num_meals'][()]
+
+                # if not meals present, skip current file
+                if num_meals < 1:
+                    continue
+
+            # read out data for current plot variable (need to read out differently depending on format)
+            arrayCheck = isinstance(f[grp][dset_name], (list, tuple, np.ndarray))
+            if scalarFlag or not arrayCheck:
+                # read out scalar data
+                h5_dat = f[grp][dset_name][()]
+
+                # apparently our check above does not guarantee scalar data, so perform another check
+                if isinstance(h5_dat, np.ndarray) and not timeSeriesFlag:
+                    data_curr.append(np.nanmean(h5_dat))
+                else:
+                    data_curr.append(h5_dat)
+            else:
+                # read out array data
+                h5_dat = f[grp][dset_name][:]
+
+                # if it's time series data, we want each time array to be an element of the data_curr list.
+                if timeSeriesFlag:
+                    data_curr.append(h5_dat)
+                else:
+                    # if it's mealwise data, want to take mean and then add to list
+                    data_curr.append(np.nanmean(h5_dat))
+
+            # if time series case, also grab time
+            if timeSeriesFlag:
+                t_dat = f[grp]['t'][:]
+                t_curr.append(t_dat)
+
+    # ----------------------------------------------------
+    # remove nan values from data
+    if timeSeriesFlag:
+        # want to remove both time array and data array if data is all nan
+        zipped_out = [(d, t) for (d, t) in zip(data_curr, t_curr) if not np.all(np.isnan(d))]
+        data_curr, t_curr = map(list, zip(*zipped_out))
+        # data_curr = [d for d in data_curr if not np.all(np.isnan(d))]
+    else:
+        data_curr = [d for d in data_curr if not np.isnan(d)]
+
+    # --------------------------------
+    # return data and time
+    return data_curr, t_curr
 # =============================================================================
 """
 
@@ -590,8 +836,7 @@ class SaveOptions(Frame):
         self.save_stats_button.grid(column=col + 2, row=row, columnspan=1,
                                     padx=2, pady=2, sticky=(N, S, E, W))
 
-        # ---------------------------------------------------------------------
-
+    # --------------------------------------------------------------------------
     # callback functions
     def save_plot(self, parent):
         """ function to save current plot window """
@@ -724,6 +969,7 @@ class postProcess:
         self.master.lift()
         self.master.attributes("-topmost", 1)
         self.master.attributes("-topmost", 0)
+
     # ===================================================================
     def init_gui(self):
 
@@ -771,14 +1017,6 @@ class postProcess:
         plot_var = self.plotVar.get()
         onlyEatersFlag = self.data_options.onlyEatersFlag.get()
 
-        # check if we're plotting 'mealwise' or 'summary' data 
-        # (this determines how we read xlsx file)
-        mealwiseFlag = ("Mealwise" in plot_var)
-
-        # also check if data is of 'time series' format -- if so, we can't read
-        # it from xlsx, and we need make adjustments
-        timeSeriesFlag = ("Time Series" in plot_var)
-
         # read data filenames/user-assigned data names from entries
         data_fn_list = [s.split(' -- ')[1] for s in data_entry_list]
         data_names_all = [s.split(' -- ')[0] for s in data_entry_list]
@@ -800,212 +1038,13 @@ class postProcess:
             # xlsx case
             # ------------------
             if ext == ".xlsx":
-                # first check if we're trying to read time series -- this will 
-                # not work, so we can skip
-                if timeSeriesFlag:
-                    print('Time series data not contained in {} -- skipping'.format(fn))
-                    continue
+                data_curr, t_curr = load_summary_xlsx(fn, plot_var, onlyEatersFlag=onlyEatersFlag)
 
-                # load in full xlsx workbook
-                wb = load_workbook(fn)
-
-                # restirct attention to either summary or event sheet 
-                if mealwiseFlag:
-                    try:
-                        sheet_index = wb.sheetnames.index('Events')
-                        # prefixStr = 'Mealwise '
-                    except ValueError:
-                        print('Error: no Events data in file')
-                        continue
-                else:
-                    try:
-                        sheet_index = wb.sheetnames.index('Summary')
-                        # prefixStr = ''
-                    except ValueError:
-                        print('Error: no Summary data in file')
-                        continue
-
-                # set selected sheet to active
-                wb.active = sheet_index
-                sheet = wb.active
-
-                # get column headers to see which data to grab
-                sheet_headers = []
-                max_col = sheet.max_column
-                for c in range(1, max_col + 1):
-                    header_str = str(sheet.cell(row=1, column=c).value)
-                    # i've changed the way the columns are labeled, but for 
-                    # compatibility with previous analysis files, need to 
-                    # make sure we include 'mealwise' in name 
-                    if mealwiseFlag and not ("Mealwise" in header_str):
-                        header_str = "Mealwise " + header_str
-                    sheet_headers.append(header_str)
-
-                # try to read data from specified column
-                try:
-                    col_idx = sheet_headers.index(plot_var)
-                except ValueError:
-                    print('Could not find variable {}'.format(plot_var))
-                    continue
-
-                # how many rows the sheet contains
-                max_row = sheet.max_row
-
-                # grab data from that column
-                data_curr = np.full((max_row - 1, 1), np.nan)
-                for i in range(1, max_row):
-                    data_curr[i - 1] = sheet.cell(row=i + 1, column=col_idx + 1).value
-
-                # when reading from cells, each cell gives an array. want just entries
-                data_curr = np.asarray([d[0] for d in data_curr])
-
-                # if collecting mealwise data, need to average over each fly. to do so, get meal numbers, and find where
-                # they have a skip
-                if mealwiseFlag:
-                    # get column index for meal number
-                    meal_num_col_idx = sheet_headers.index("Mealwise Meal Number")
-
-                    # read out meal numbers
-                    meal_numbers = np.full((max_row - 1, 1), np.nan)
-                    for i in range(1, max_row):
-                        meal_numbers[i - 1] = sheet.cell(row=i + 1, column=meal_num_col_idx + 1).value
-
-                    # when reading from cells, each cell gives an array. want just entries
-                    meal_numbers = [mn[0] for mn in meal_numbers]
-
-                    # find skips in meal number
-                    meal_num_diff = np.diff(meal_numbers)
-
-                    # wrangle this into idx to loop over
-                    fly_switch_idx = np.where(meal_num_diff != 1)[0] + 1
-                    fly_switch_idx = fly_switch_idx.tolist()
-                    fly_switch_idx.insert(0, 0)
-                    fly_switch_idx.append(len(meal_numbers))
-
-                    # loop over switching idx
-                    fly_means = []
-                    for jth in range(len(fly_switch_idx)-1):
-                        idx1 = fly_switch_idx[jth]
-                        idx2 = fly_switch_idx[jth+1]
-                        fly_means.append(np.nanmean(data_curr[idx1:idx2]))
-
-                    # overwrite "data_curr" with fly-averaged data
-                    data_curr = np.asarray(fly_means)
-
-
-                # remove non-eating flies, if selected, as well as nan values
-                if onlyEatersFlag and not mealwiseFlag:
-                    try:
-                        num_meals_col_idx = sheet_headers.index('Number of Meals')
-                        num_meals = np.full((max_row - 1, 1), np.nan)
-                        for ii in range(1, max_row):
-                            num_meals[ii - 1] = sheet.cell(row=ii + 1,
-                                                           column=num_meals_col_idx + 1).value
-
-                        ignore_idx = (num_meals < 1) | (np.isnan(data_curr))
-                    except ValueError:
-                        ignore_idx = np.ones_like(data_curr, dtype=bool)
-                else:
-                    ignore_idx = np.isnan(data_curr) | (data_curr < 0)
-
-                data_curr = data_curr[~ignore_idx]
-                # can't get time series from xlsx, so just make place holder
-                t_curr = []
-                # ------------------
+            # ------------------
             # hdf5 case      
             # ------------------
             elif ext == ".hdf5":
-                # checking dictionary keys changed between python 2 & 3
-                if sys.version_info[0] < 3:
-                    summary_key_chk = summary_heading_dict.has_key(plot_var)
-                    events_key_chk = events_heading_dict.has_key(plot_var)
-                else:
-                    summary_key_chk = plot_var in summary_heading_dict
-                    events_key_chk = plot_var in events_heading_dict
-
-                # get dataset name for current plot variable
-                if summary_key_chk:
-                    dset_name = summary_heading_dict[plot_var]
-                    # because h5py no longer supports .value for grabbing data,
-                    # need to read out data differently if it's scalar or array
-                    if timeSeriesFlag:
-                        scalarFlag = False
-                    else:
-                        scalarFlag = True
-                elif events_key_chk:
-                    dset_name = events_heading_dict[plot_var]
-                    scalarFlag = False
-                else:
-                    errStrH5 = 'Could not find {} data in {} -- skipping'
-                    print(errStrH5.format(plot_var, fn))
-                    continue
-
-                # read out all group keys in hdf5 file (these correspond to individual flies)
-                with h5py.File(fn, 'r') as f:
-                    fly_grp_list = f.keys()
-                    data_curr = []
-                    t_curr = []
-
-                    # --------------------------------------------------------------
-                    # perform checks so that non-feeding data doesn't hit an error
-                    # check if this data file contains eating data. if not, skip it
-                    dset_chk_list = [("{}/{}".format(grp, dset_name) in f) for grp in fly_grp_list]
-                    num_meals_chk_list = [("{}/{}".format(grp, 'num_meals') in f) for grp in fly_grp_list]
-                    if not any(dset_chk_list):
-                        print('{} does not contain {} data -- skipping'.format(fn, plot_var))
-                        continue
-                    elif not any(num_meals_chk_list) and onlyEatersFlag:
-                        chkbtn_str = "Exclude flies without meals"
-                        err_str = '{} does not contain meal data, and <<{}>> has been selected -- skipping'
-                        print(err_str.format(os.path.normpath(fn), chkbtn_str))
-                        continue
-                    # ---------------------------------------------------------
-                    # loop over groups (flies) and read out data
-                    for grp in fly_grp_list:
-                        # skip if fly doesn't eat and we're supposed to skip non-eating flies
-                        if onlyEatersFlag or mealwiseFlag:
-                            num_meals = f[grp]['num_meals'][()]
-
-                            # if not meals present, skip current file
-                            if num_meals < 1:
-                                continue
-
-                        # read out data for current plot variable (need to read out differently depending on format)
-                        arrayCheck = isinstance(f[grp][dset_name], (list, tuple, np.ndarray))
-                        if scalarFlag or not arrayCheck:
-                            # read out scalar data
-                            h5_dat = f[grp][dset_name][()]
-
-                            # apparently our check above does not guarantee scalar data, so perform another check
-                            if isinstance(h5_dat, np.ndarray) and not timeSeriesFlag:
-                                data_curr.append(np.nanmean(h5_dat))
-                            else:
-                                data_curr.append(h5_dat)
-                        else:
-                            # read out array data
-                            h5_dat = f[grp][dset_name][:]
-
-                            # if it's time series data, we want each time array to be an element of the data_curr list.
-                            if timeSeriesFlag:
-                                data_curr.append(h5_dat)
-                            else:
-                                # if it's mealwise data, want to take mean and then add to list
-                                data_curr.append(np.nanmean(h5_dat))
-                        # data_curr.append(h5_dat)
-
-                        # if time series case, also grab time
-                        if timeSeriesFlag:
-                            t_dat = f[grp]['t'][:]
-                            t_curr.append(t_dat)
-
-                    # remove nan values from data
-                    if timeSeriesFlag:
-                        # want to remove both time array and data array if data is all nan
-                        zipped_out = [(d, t) for (d, t) in zip(data_curr, t_curr) if not np.all(np.isnan(d))]
-                        data_curr, t_curr = map(list, zip(*zipped_out))
-                        # data_curr = [d for d in data_curr if not np.all(np.isnan(d))]
-                    else:
-                        data_curr = [d for d in data_curr if not np.isnan(d)]
+                data_curr, t_curr = load_summary_hdf5(fn, plot_var, onlyEatersFlag=onlyEatersFlag)
 
             # ------------------
             # csv case      
@@ -1022,9 +1061,10 @@ class postProcess:
 
             # --------------------------------------------
             # add data from current file to list of data
-            data_list.append(data_curr)
-            t_list.append(t_curr)
-            data_names.append(data_names_all[ith])
+            if len(data_curr) > 0:
+                data_list.append(data_curr)
+                t_list.append(t_curr)
+                data_names.append(data_names_all[ith])
 
         # -----------------------------------------------
         # check for empty data sets, and remove those

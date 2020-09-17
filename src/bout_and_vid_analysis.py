@@ -697,12 +697,16 @@ def plot_bout_aligned_var(basic_entries, varx='xcm_smooth', vary='ycm_smooth', w
     for ith, ent in enumerate(basic_entries):
         # get full filename for current hdf5 analysis file, as well as file id
         hdf5_filename = ent + data_suffix
-        ent_id = os.path.basename(ent)
-        # read out meal aligned varx and vary data
-        data_x = get_meal_aligned_data(hdf5_filename, varx, window_left_sec=window_left_sec,
-                                       window_right_sec=window_right_sec, meal_num=meal_num)
-        data_y = get_meal_aligned_data(hdf5_filename, vary, window_left_sec=window_left_sec,
-                                       window_right_sec=window_right_sec, meal_num=meal_num)
+        if os.path.exists(hdf5_filename):
+            ent_id = os.path.basename(ent)
+            # read out meal aligned varx and vary data
+            data_x = get_meal_aligned_data(hdf5_filename, varx, window_left_sec=window_left_sec,
+                                           window_right_sec=window_right_sec, meal_num=meal_num)
+            data_y = get_meal_aligned_data(hdf5_filename, vary, window_left_sec=window_left_sec,
+                                           window_right_sec=window_right_sec, meal_num=meal_num)
+        else:
+            data_x = None
+            data_y = None
 
         # make sure we got data for both x and y
         if data_x is None or data_y is None:
