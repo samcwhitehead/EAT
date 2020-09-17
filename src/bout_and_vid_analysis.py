@@ -1028,6 +1028,9 @@ def save_comb_summary(entry_list, xlsx_filename,
 
         print('Completed saving {}'.format(xlsx_filename))
         return
+    elif not all(comb_data_idx):
+        entry_list = [ent for ent in entry_list if os.path.exists(os.path.abspath(ent + data_suffix))]
+        
     # ------------------------------------------------------------------------
     # if we've gotten here, we can proceed with normal combined data summary 
 
