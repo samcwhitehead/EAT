@@ -460,8 +460,8 @@ def hdf5_to_flyCombinedData(filepath, filename):
                        'filename': filename}
 
     data_prefix = os.path.splitext(filename)[0]
-    xp_name = data_prefix.split('_')[-3]
-    channel_name = 'channel_' + data_prefix.split('_')[-1]
+    xp_name = data_prefix.split('_')[-5]
+    channel_name = 'channel_' + data_prefix.split('_')[-3]
 
     # bank and channel names
     flyCombinedData['xp_name'] = xp_name
@@ -475,11 +475,15 @@ def hdf5_to_flyCombinedData(filepath, filename):
         # --------------------------
         # Image info
         # --------------------------
-        flyCombinedData = my_add_dset_to_dict(flyCombinedData, 'ROI', f, 'ROI', 'roi')
-        flyCombinedData = my_add_dset_to_dict(flyCombinedData, 'cap_tip', f, 'CAP_TIP', 'cap_tip')
-        flyCombinedData = my_add_dset_to_dict(flyCombinedData, 'cap_tip_orientation', f, 'CAP_TIP',
-                                              'cap_tip_orientation', scalar_flag=True)
-        flyCombinedData = my_add_dset_to_dict(flyCombinedData, 'BG', f, 'BG', 'bg')
+        try:
+            flyCombinedData = my_add_dset_to_dict(flyCombinedData, 'ROI', f, 'ROI', 'roi')
+            flyCombinedData = my_add_dset_to_dict(flyCombinedData, 'cap_tip', f, 'CAP_TIP', 'cap_tip')
+            flyCombinedData = my_add_dset_to_dict(flyCombinedData, 'cap_tip_orientation', f, 'CAP_TIP',
+                                                  'cap_tip_orientation', scalar_flag=True)
+            flyCombinedData = my_add_dset_to_dict(flyCombinedData, 'BG', f, 'BG', 'bg')
+        except KeyError:
+            flyCombinedData = {}
+            return flyCombinedData
 
 
         # --------------------------
@@ -1067,6 +1071,11 @@ def save_comb_summary(entry_list, xlsx_filename,
             flyCombinedData = hdf5_to_flyCombinedData(filepath, filename)
             filename_noExt, _ = os.path.splitext(filename)
 
+            # check that data was loaded successfully
+            if not bool(flyCombinedData):
+                print('*Error loading {} -- skipping'.format(filename_full))
+                continue
+
             # get bank and channel info
             xp_regex = "XP\d\d"
             channel_regex = "channel_\d"
@@ -1222,6 +1231,11 @@ def save_comb_summary_hdf5(entry_list, h5_filename,
             else:
                 flyCombinedData = hdf5_to_flyCombinedData(filepath, filename)
             filename_noExt, _ = os.path.splitext(filename)
+
+            # check that data was loaded successfully
+            if not bool(flyCombinedData):
+                print('*Error loading {} -- skipping'.format(filename_full))
+                continue
 
             # get bank and channel info
             xp_regex = "XP\d\d"

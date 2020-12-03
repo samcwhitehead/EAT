@@ -1137,6 +1137,7 @@ class BatchCombinedFrame(Frame):
                                                         volumes, flyTrackData)
                 flyCombinedData_to_hdf5(flyCombinedData)
 
+                print('Successfully combined data for {}'.format(data_file))
     # ---------------------------------------------------------------------
     # plot channel (feeding) data summary
     # ---------------------------------------------------------------------
@@ -1265,7 +1266,7 @@ class BatchCombinedFrame(Frame):
             fig, ax = plot_bout_aligned_var(batch_list, varx=varx, vary=vary, window_left_sec=window_left_sec,
                                             window_right_sec=window_right_sec, meal_num=meal_num,
                                             save_flag=options_save_flag, save_filename=xlsx_filename,
-                                            varx_name=x_label, vary_name=y_label,one_x_column_flag=one_x_column_flag)
+                                            varx_name=x_label, vary_name=y_label, one_x_column_flag=one_x_column_flag)
 
             # -----------------------------------
             # modify axis
