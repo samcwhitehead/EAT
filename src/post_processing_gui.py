@@ -20,6 +20,8 @@ Created on Wed Sep 18 10:15:58 2019
 # -----------------------------------------------------------------------------
 import matplotlib
 
+import matplotlib.backends.backend_tkagg as tkagg
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 # matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
@@ -938,8 +940,9 @@ class postProcess:
         self.fig = matplotlib.figure.Figure(figsize=(7, 4), facecolor='none')
         self.ax = self.fig.add_subplot(111)
 
-        self.canvas = matplotlib.backends.backend_tkagg.FigureCanvasTkAgg(self.fig,
-                                                                          master=self.master)
+        #self.canvas = matplotlib.backends.backend_tkagg.FigureCanvasTkAgg(self.fig,
+        #                                                                  master=self.master)
+        self.canvas = FigureCanvasTkAgg(self.fig, master=self.master)
         self.canvas.draw()
         self.canvas.get_tk_widget().grid(column=2, row=0, padx=10, pady=5, sticky=N)
         self.canvas._tkcanvas.grid(column=2, row=0, rowspan=4, columnspan=4,
