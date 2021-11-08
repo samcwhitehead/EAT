@@ -143,13 +143,12 @@ def crop_and_save_single_video(filepath, xp_names, channel_numbers):
     roi_list = []
     
     with h5py.File(vid_info_filename,'r') as f:
-        FPS = f['Params']['FPS'].value
-        N_FRAMES = f['Params']['N_FRAMES'].value
-        #PIX2CM = f['Params']['PIX2CM'].value
+        FPS = f['Params']['FPS'][()]
+        N_FRAMES = f['Params']['N_FRAMES'][()]
         
         for (ith, xp_name) in enumerate(xp_names):
             for channel_name in channel_names[ith]:
-                roi_curr = f['ROI'][xp_name + '_' + channel_name].value
+                roi_curr = f['ROI'][xp_name + '_' + channel_name][:]
                 roi_list.append(roi_curr)
     #=================================================
     # define list of video writers
