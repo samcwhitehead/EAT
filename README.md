@@ -4,7 +4,7 @@
 
 ### Expresso Hardware and Firmware ###
 
-EAT is designed to be used for analyzing data from Expresso behavioral assays. The resources listed below can be used to build the apparatus for Expresso experiments and collect data during Expresson experiments (probably need to update these):
+EAT is designed to be used for analyzing data from Expresso behavioral assays. The resources listed below can be used to build the apparatus for Expresso experiments and collect data during Expresso experiments (probably need to update these):
 
 * [Open source plans for Expresso sensor banks](http://public.iorodeo.com/docs/expresso/hardware_design_files.html)
 
