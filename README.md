@@ -16,7 +16,7 @@ EAT can be run on Windows, Linux, or MacOS. We recommend an **Anaconda environme
 
 1. **Install Anaconda** [File download](https://www.anaconda.com/products/individual) | [Installation guide](https://docs.anaconda.com/anaconda/install/) 
 
-2. **Download EAT code** [Bitbucket repository](https://bitbucket.org/samcwhitehead/visual_expresso_gui/src/master/)
+2. **Download EAT code** [GitHub repository](https://github.com/scw97/EAT)
 
 3. **Create EAT Anaconda environment** In the Anaconda terminal (or Unix terminal), navigate to the root folder of the EAT code and run the following:
 	* **`conda env create --file eat.yaml` **
