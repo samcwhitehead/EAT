@@ -19,8 +19,8 @@ EAT can be run on Windows, Linux, or MacOS. We recommend an **Anaconda environme
 2. **Download EAT code** [GitHub repository](https://github.com/scw97/EAT)
 
 3. **Create EAT Anaconda environment** In the Anaconda terminal (or Unix terminal), navigate to the root folder of the EAT code and run the following:
-	* **`conda env create --file eat.yaml` **
-	* ** `conda activate eat` **
+	* **`conda env create --file eat.yaml`**
+	* **`conda activate eat`**
 
 4. **Run EAT** Choose to run EAT from either the Anaconda terminal or Spyder.
 	* (terminal) In the same terminal, run:
