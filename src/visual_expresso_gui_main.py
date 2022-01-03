@@ -1041,9 +1041,14 @@ class BatchCombinedFrame(Frame):
                                               PARAMS=trackingParams)
                 filename_prefix = os.path.splitext(vid_filename)[0]
                 track_filename = filename_prefix + "_TRACKING.hdf5"
-                flyTrackData = process_visual_expresso(file_path, track_filename,
-                                                       SAVE_DATA_FLAG=True,
-                                                       DEBUG_FLAG=False)
+
+                # make sure that tracking went successfully before trying to continue
+                if os.path.exists(os.path.join(file_path, track_filename)):
+                    flyTrackData = process_visual_expresso(file_path, track_filename,
+                                                           SAVE_DATA_FLAG=True,
+                                                           DEBUG_FLAG=False)
+                else:
+                    continue
 
                 # perform feeding analysis
                 channel_entry = basic2channel(data_file)
