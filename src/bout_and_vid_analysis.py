@@ -205,7 +205,7 @@ def check_bout_wTracking(bouts, channel_t, vid_t, xcm, ycm, vel_mag, bout_params
 # function to check bouts based on tracking data
 def bout_analysis_wTracking(filename, bank_name, channel_name, bts=[], vols=[], time=[], dset_sm=[], bt_chgpts=[],
                             bout_params=analysisParams, saveFlag=False, plotFlag=False, debugBoutFlag=False,
-                            debugTrackingFlag=False, split_meals_flag=True):
+                            debugTrackingFlag=False, split_meals_flag=True, runTrackingFlag=False):
     # --------------------------------
     # load channel data and get bouts
     # --------------------------------
@@ -245,7 +245,7 @@ def bout_analysis_wTracking(filename, bank_name, channel_name, bts=[], vols=[], 
 
     if os.path.exists(filename_vid_analysis_full):
         flyTrackData = hdf5_to_flyTrackData(file_path, filename_vid_analysis)
-    elif os.path.exists(filename_vid_full):
+    elif os.path.exists(filename_vid_full) and runTrackingFlag:
         print('{} has not yet been analyzed. Doing so now...'.format(filename_vid_full))
         visual_expresso_tracking_main(file_path, filename_vid, DEBUG_BG_FLAG=debugTrackingFlag,
                                       DEBUG_CM_FLAG=debugTrackingFlag, SAVE_DATA_FLAG=True, ELLIPSE_FIT_FLAG=False,

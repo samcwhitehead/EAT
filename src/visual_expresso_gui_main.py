@@ -538,7 +538,8 @@ class VideoDataFrame(Frame):
                                           ELLIPSE_FIT_FLAG=False, PARAMS=trackingParams)
 
             # process raw tracking results
-            process_visual_expresso(file_path, track_filename, SAVE_DATA_FLAG=save_debug_flag, DEBUG_FLAG=False)
+            if os.path.exists(os.path.join(file_path, track_filename)):
+                process_visual_expresso(file_path, track_filename, SAVE_DATA_FLAG=save_debug_flag, DEBUG_FLAG=False)
 
         else:
             print('Not overwriting {} -- exiting'.format(filename_prefix))
@@ -1377,6 +1378,8 @@ class Expresso:
                           sticky='NSEW')
         self.batch_nb.add(self.batchcomb_frame, text='Batch Combined Analysis',
                           sticky='NSEW')
+
+        self.batch_nb.select(2)  # default to combined batch
 
         # insert logo image!
         # get path to image (should be in src directory)

@@ -212,7 +212,8 @@ def draw_line(img, window_name):
 
 # -----------------------------------------------------------------------------
 # define pixel to centimeter conversion
-def get_pixel2cm(img, vial_length_cm=4.42, vial_width_cm=1.22):
+def get_pixel2cm(img, vial_length_cm=trackingParams['vial_length_cm'],
+                 vial_width_cm=trackingParams['vial_width_cm']):
     print('Draw line indicating vial length; press enter after completion')
     vial_length_pts = draw_line(img, 'Vial length')
     vial_length_px = cv2.norm(vial_length_pts[0], vial_length_pts[1])
@@ -459,41 +460,20 @@ def get_bg(filename, r, tracking_params=trackingParams, debugFlag=True,
             bg_sub_curr_crop = cv2.GaussianBlur(bg_sub_curr_crop, (5, 5), 0)
 
             # get otsu threshold            
-            otsu_thresh, _ = cv2.threshold(bg_sub_curr_crop, \
-                                           0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            otsu_thresh, _ = cv2.threshold(bg_sub_curr_crop, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
             otsu_thresh_arr = np.append(otsu_thresh_arr, otsu_thresh)
 
-        # test_sub = cv2.subtract(bg,imt3)
-
-        # test_sub = test_sub.ravel()
-        # test_sub_sym = np.append(test_sub,-1*test_sub)
-
-        # mean_otsu = np.mean(otsu_thresh_arr)
+        # try to get an estimate of threshold value distributions -- use to form min thresh guess
         std_otsu = np.std(otsu_thresh_arr)
         min_otsu = np.min(otsu_thresh_arr)
         otsu_low_bound = min_otsu - std_otsu  # 3*std_otsu
-        # min_thresh_guess = np.min([11*robust.mad(test_sub_sym),min_pix_thresh_guess])
         min_thresh_guess = np.min([otsu_low_bound, min_pix_thresh_guess])
-        # print('mean = {:f}'.format(np.mean(test_sub_sym)))
-        # print('std = {:f}'.format(np.std(test_sub_sym)))
         min_thresh_guess = int(min_thresh_guess)
 
         if min_thresh_guess < min_pix_thresh:
             min_thresh_guess = int(min_pix_thresh)
 
-        # pbar.finish()
         cap.release()
-
-        # print('')
-        # print(min_thresh_guess)
-        # print('')
-        # if debugFlag:
-        #    fig, ax = plt.subplots()
-        #    ax.hist(otsu_thresh_arr,100)
-        #    print('Mean = {} , STD = {}'.format(np.mean(otsu_thresh_arr),np.std(otsu_thresh_arr)))
-        # cv2.namedWindow('Background', cv2.WINDOW_NORMAL)
-        # cv2.imshow('Background',bg)
-        # cv2.waitKey(20)
 
     # ============================================================
     # if the fly is not detected (e.g. if it very rarely moves)  
@@ -609,9 +589,6 @@ def get_cm(filename, bg, r, tracking_params=trackingParams, mean_intensity=130.0
     # progress bar for CM completion (something weird happening here)
     if verbose:
         print('Finding CM...')
-    #        widgets = ['Finding CM: ', progressbar.Percentage(), progressbar.Bar()]
-    #        pbar = progressbar.ProgressBar(widgets=widgets,
-    #                                       maxval=(N_frames-1)).start()
 
     if debugFlag:
         cv2.namedWindow('Finding CM...', cv2.WINDOW_NORMAL)
@@ -674,16 +651,16 @@ def get_cm(filename, bg, r, tracking_params=trackingParams, mean_intensity=130.0
 
             # this is the case when you find one contour of appropriate size
             if np.sum(cnt_area_check) == 1:
-                c = cnts[np.where(cnt_area_check)[0][0]]
+                c_idx = np.where(cnt_area_check)[0][0]
+                c = cnts[c_idx]
                 M = cv2.moments(c)
                 xcm_curr = M['m10'] / M['m00']
                 ycm_curr = M['m01'] / M['m00']
-                # x_cm.append(xcm_curr)
-                # y_cm.append(ycm_curr)
+                cnt_area.append(cnt_areas[c_idx])
 
                 if ellipseFlag:
                     try:
-                        ellipse_fit = cv2.fitEllipse(cnt)
+                        ellipse_fit = cv2.fitEllipse(c)
                         angle_list.append(ellipse_fit[-1])
                         ellipse_width.append(ellipse_fit[2])
                         ellipse_height.append(ellipse_fit[3])
@@ -799,7 +776,6 @@ def get_cm(filename, bg, r, tracking_params=trackingParams, mean_intensity=130.0
 
     # print and return
     if verbose:
-        # pbar.finish()
         print('Finished center of mass for ' + filename)
         print('')
         drop_frame_str = "Dropped frames: " + str(len(dropped_frames))
@@ -938,6 +914,12 @@ def visual_expresso_tracking_main(DATA_PATH, DATA_FILENAME, DEBUG_BG_FLAG=False,
                                                                       min_thresh=min_thresh_guess,
                                                                       ellipseFlag=ELLIPSE_FIT_FLAG,
                                                                       debugFlag=DEBUG_CM_FLAG)
+
+    # check to make sure that we actually tracked something
+    if (xcm.size - np.sum(np.isnan(xcm))) < 3:
+        print("No fly to track -- exiting")
+        flyTrackData = []
+        return flyTrackData
 
     # ----------------------------------------------------------
     # transform coordinates based on capillary/vial orientation
