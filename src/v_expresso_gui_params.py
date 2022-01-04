@@ -70,22 +70,6 @@ trackingParams = {'fly_size_range' : [20, 100] ,
             'vial_length_cm':4.42,
             'vial_width_cm':1.22}
 
-initDirectories = ["H:\\v_expresso data\\Feeding_annotation_videos",
-                   "F:\\Expresso GUI\\for_testing\\fewbigmealsevents", 
-                     "F:\\Expresso GUI\\for_testing\\fewsmallmealevents",
-                     "F:\\Expresso GUI\\for_testing\\manysmallmeals",
-                     "F:\\Expresso GUI\\for_testing\\nodrinkingevents",
-                     "F:\\Expresso GUI\\for_testing\\fromNilay",
-                     "F:\\Expresso GUI\\for_testing\\long_data_files",
-                     "F:\\Expresso GUI\\Saumya Annotations\\annotations_expresso_data",
-                     "C:\\Users\Fruit Flies\\Documents\\Python Scripts\\Visual Expresso GUI\\dat\\bout_annotations\\data",
-                     "H:\\v_expresso data\\MATRIX_DEBUG\\8hr_1mM",
-                     "H:\\v_expresso data\\staci example video",
-                     "D:\\v_expresso_data\\Feeding_annotation_videos",
-                     "D:\\v_expresso_data\\Dopamine_data",
-                     "D:\\v_expresso_data\\Dopamine_data\\updated",
-                     "D:\\v_expresso_data\\Matrix_Data\\24hr\\1000mM",
-                     "D:\\v_expresso_data\\Stonemetz\\Dessication Test",
-                     "D:\\v_expresso_data\\Stonemetz\\No Food No Capillary"]
+initDirectories = []
              
              

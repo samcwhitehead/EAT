@@ -78,18 +78,21 @@ After populating the "Video files" box, the buttons to its left can be used to p
 
 ![](gifs/analyze_vid.gif)
 
-### Batch analysis ###
+### Batch analyses ###
 
 To analyze data from multiple flies at once, we use the batch analysis window on the righthand side of the main EAT GUI. The tabs on the top left of this window correspond to batch analysis of 1) just liquid level data ("Batch Channel Analysis), 2) just video data ("Batch Video Analysis"), and 3) combined liquid level and video data ("Batch Combined Analysis"). We'll discuss only the "Batch Combined Analysis" here, as it is typically the default, and since the analyses of single data types mirror the options available for combined data. 
 
+#### Selecting files for batch analysis ####
 To begin batch analysis, we need to populate the batch analysis list box. To do this, highlight of entries in either the "Channel list" or "Video files" box and click the \<Add Data to Batch> button. Underneath the batch analysis list box are three columns containing buttons, as well as a column of input fields on the lefthand side. The input fields are used solely as time limits and bin sizes for plots of feeding --- they will not affect the output of any saved analyses. The leftmost column of buttons deals with populating the batch analysis list box (adding entries as described above, as well as removing some or all entries). The more functionally useful buttons are found in the center and rightmost columns.
 
+#### Analyzing/saving multi-fly data ####
 The central column of batch analysis buttons contains tools for analyzing multiple flies at once, as well as saving the results of these analyses for future use. To perform both tracking and meal bout detection on data files in the batch analysis list box, use the \<Analyze/Save Data> button. This will generate a .hdf5 analysis file for each entry in the batch analysis list box, which are automatically saved to the directory where the corresponding list box entry can be found. Files generated with this method have the suffix "_COMBINED\_DATA." If the entries in the batch analysis list box have already been tracked --- and there exist "\*\_TRACKING\_PROCESSED	.hdf5" files for these entries --- then the \<Combine Data Types> button can also be used to generate "_COMBINED\_DATA.hdf5" files, without needing to repeat the tracking calculations. 
 
 With combined data analysis files in hand, the \<Save Combined Summary> and \<Save Time Series> buttons can be used to save information on multiple flies (those populating the batch analysis list box). \<Save Combined Summary> generates both .hdf5 and .xlsx files containing per-fly data on meal events and tracking summaries. NB: the files produced by \<Save Combined Summary> are the input for the EAT data visualization GUI, which facilitates groupwise plotting and statistical comparisons for selected feeding and movement variables. \<Save Time Series> generates a series of .csv files --- one for each entry in the batch analysis list box --- containing information about the fly at each measured time point, including the (x,y) position, speed, and a boolean signal indicating whether or not the fly is currently feeding at that time point. These .csv files are meant to provide an easier means for accessing the time series data, both for manual examination and input into other analysis tools. 
 
 ![](gifs/batch_analysis.gif)
 
+#### Plotting batch results ####
 The rightmost column of buttons underneath the batch analysis list box are used to plot different aspects of the combined feeding and tracking data across the selected flies:
 * **\<Plot Channel Analysis>** Generates two plots: 1) a raster plot where each row corresponds to a fly and each column corresponds to a time point, with meal bouts indicated in black and 2) a summed histogram showing the total consumption per time bin eaten across the population of selected flies. The range of the *t* axis, as well as the size of the *t* bins are set by the entry fields "t\_min," "t\_max," and "t\_bin" in units of seconds.
 * **\<Plot Heatmap>** Generates a Gaussian-kernel-smoothed heatmap of position data across all flies populating the batch analysis list box. 
@@ -101,3 +104,25 @@ The rightmost column of buttons underneath the batch analysis list box are used 
 
 ## Groupwise comparisons and statistics ##
 
+After extracting tracking and feeding information from the video and liquid level measurements, EAT allows users to compare summary statistics for this data across different fly groups. These comparisons are performed using a third GUI, which is accessed by running **`post_processing_gui.py`**. 
+
+### Preparing and loading inputs ###
+
+As mentioned above, the post-processing GUI takes in combined summary files as inputs, i.e. those produced by the \<Save Combined Summary> button in the batch analysis window. The \<Save Combined Summary> button produces summary files in both .hdf5 and .xlsx format; these file types can be used interchangeably within the post-processing GUI, with the exception that only the .hdf5 files store time series information (e.g. cumulative or radial distance as a function of time). Therefore, to perform groupwise comparisons, users should use the batch analysis section of the main EAT GUI --- described in the previous section --- to generate summary files for each desired group of flies. After these summary files are generated for each group, they can be used by the post-processing GUI for further exploration.
+
+Similar to the two other GUIs discussed above, the post-processing GUI allows data to be loaded either through the regular file explorer window (\<Load Data> button) or by dragging/dropping summary files into the "Select Data" list box. For each summary file added using either method, the user is asked to provide a shorthand name --- these names are used in the axes and legends of plots created in the post-processing GUI window. 
+
+### Generating summary plots ###
+
+After loading at least one summary file into the post-processing GUI, plots can be generated using the tools in the bottom left of the GUI window. Specifically, the "Variable to Plot" drop-down menu allows the user to select the data they would like to visualize. After a plot variable has been selected in this drop-down menu, the \<Update Display> button can be used to generate a figure on the righthand side of the GUI window, which will include one plot object (e.g. box and whisker plot or time series trace with confidence intervals) per summary file loaded into the GUI. As the selected variable is changed or new summary files are added/removed, the \<Update Display> button can be used to update the plot window to reflect these changes. The options for variables to plot include:
+* *Number of Meals*: number of meal bouts detected per fly, displayed as a box and whisker plot.
+* *Total Volume*: total volume of fluid consumed by each fly during the experimental run, in nanoliters, displayed as a box and whisker plot.
+* *Total Duration Eating*: total time spent eating by each fly during the experimental run, in seconds, displayed as a box and whisker plot.
+* *Total Duration Eating*: total time spent eating by each fly during the experimental run, in seconds, displayed as a box and whisker plot.
+* *Latency to Eat*: duration of time from start of experiment to a fly's first meal, in seconds, displayed as a box and whisker plot.
+* *Cumulative Dist.*: total distance traveled by each fly throught the experimental run, in centimeters, displayed as a box and whisker plot.
+* *Average Speed*: average speed of each fly's movement during the experimental run, in cm/s, displayed as a box and whisker plot. NB: this average is taken only when the fly is detected as moving.
+* *Fraction Time Moving*: fraction of time each fly spends moving throughout the experiment, displayed as a box and whisker plot.
+* *Pre Meal Dist.*: total distance traveled by each fly prior to the beginning of its first meal, in centimeters, displayed as a box and whisker plot.
+* *Food Zone Frac. (pre meal)*: fraction of time each fly spends in the "food zone" prior to its first meal, displayed as a box and whisker plot. The food zone is defined as a circle centered at the capillary tip (*x*=*y*=0) with radius defined in `v_expresso_gui_params.py` (`food_zone_rad` in `analysisParams`). This radius is set to 0.6 cm by default.
+* *Food Zone Frac. (post meal)*: same as above but for time window after the start of each fly's first meal until the end of the experimental run. Displayed as a box and whisker plot.
