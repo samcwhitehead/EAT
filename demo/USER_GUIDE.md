@@ -177,8 +177,17 @@ Using this tool, users can both confirm the accuracy of the video tracking and c
 
 The **`v_expresso_gui_params.py`** file contains a number of parameters used for analyses throughout the EAT code. In general these parameters should be well-suited to a wide variety of experimental setups; however, below we list a few entries that might be changed for convenience:
 
+* `initDirectories`: add the full paths to folders containing Visual Expresso data to this list (i.e. `initDirectories = ["C:\\...\\Expresso_Data\\", ...]`) and these directories will automatically appear in the directory list of the main EAT GUI. The first list entry will also be the default search path for the review analysis tool described above.
+
+* `trackingParams`: this dictionary object contains hard-coded values for many parameters used in the video tracking process. To input known real-world dimensions for your single-fly chambers, modify the `vial_length_cm` and `vial_width_cm` variables (entries should be in centimeters). To plot larger *xy* windows, alter the `x_lim` and `y_lim` variables (also in centimeters). For tracking a differently sized object, modify the range of acceptable areas (in cm^2) for tracked objects by adjusting `fly_size_range`. Other parameters in this dictionary can be used to affect the image processing and Kalman filtering steps of the tracking process.
+
+* `analysisParams`: this dictionary object contains parameters for meal bout detection. To adjust the way the liquid level is filtered/smoothed prior to meal bout detection, modify the wavelet type or level (`wtype` or `wlevel`), the width of the median filter window (`medfilt_window`), or the properties of the hampel filter used for outlier detection (`hampel_k`, `hampel_sigma`). To change the definition of the "food zone" (discussed above), modify the value of the food zone radius (`food_zone_rad`). Other parameters in this dictionary affect the sensitivity of the meal bout detection to dips in liquid level, as well as the values defining the various movement-based criteria for meal detection (e.g. the maximum distance allowed between the fly and capillary tip during a putative meal bout, `feeding_dist_max`).
 
 ### Recommended data organization ###
+
+To minimize the need for user input, much of the EAT code auto-saves files after performing analyses. In addition, when combining data types, the EAT code typically assumes that video and liquid level data files are located in the same directory, and have the same filename prefix. As such, we recommend  giving both the video (.avi) and liquid level (.hdf5) data files a common prefix --- e.g. "example_data.avi" and "example_data.hdf5" --- and keeping all data files from an experimental run in the same directory until analysis with the main EAT GUI are complete. 
+
+Then, after "*_COMBINED_DATA.hdf5" files have been generated for each of the flies, larger video files can be moved to separate directories to save on disk storage --- at this point the majority of the remaining analyses can be performed without the video files present. An exception to this is the `review_analysis_tool.py` script discussed above, which requires both a combined data file and a video file in the same directory; however, this tool is only needed to check the accuracy of body tracking and meal bout detection, which is typically unnecessary once these analysis types have been verified for a given setup/parameter set. 
 
 
 

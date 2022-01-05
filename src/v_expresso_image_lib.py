@@ -258,7 +258,8 @@ def enlarge_bbox(frame, bbox, padding):
 # -----------------------------------------------------------------------------
 # beter version of find background
 def get_bg(filename, r, tracking_params=trackingParams, debugFlag=True,
-           verbose=True):
+           verbose=True, pix2cm=trackingParams['pix2cm']):
+    # read in some params
     fly_size_range = tracking_params['fly_size_range']
     morphSize = tracking_params['morph_size_1']
     min_dist = tracking_params['bg_min_dist']
@@ -267,6 +268,11 @@ def get_bg(filename, r, tracking_params=trackingParams, debugFlag=True,
     fly_pix_val_max = tracking_params['fly_pix_val_max']
     min_pix_thresh = tracking_params['min_pix_thresh']
     min_pix_thresh_guess = tracking_params['min_pix_thresh_guess']
+
+    # check that we have a pixel to cm conversion factor
+    if not pix2cm:
+        pix2cm = 1.0  # this will just keep everything in pixel units.
+        print("Warning: make sure 'fly_size_range' is set in pixels if not providing pix2cm conversion")
 
     cap = cv2.VideoCapture(filename)
     N_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -298,7 +304,7 @@ def get_bg(filename, r, tracking_params=trackingParams, debugFlag=True,
     if debugFlag:
         cv2.namedWindow('frame and foreground mask', cv2.WINDOW_NORMAL)
 
-    while (delta_cm < min_dist) and (cc < N_frames):
+    while ((pix2cm*delta_cm) < min_dist) and (cc < N_frames):
 
         ret, frame = cap.read()
 
@@ -322,8 +328,9 @@ def get_bg(filename, r, tracking_params=trackingParams, debugFlag=True,
 
         if len(cnts) > 0:
             cnt_areas = np.asarray([cv2.contourArea(cnt) for cnt in cnts])
-            cnt_area_check = (cnt_areas > fly_size_range[0]) & \
-                             (cnt_areas < fly_size_range[1])
+            cnt_areas_cm = (pix2cm**2)*cnt_areas
+            cnt_area_check = (cnt_areas_cm > fly_size_range[0]) & \
+                             (cnt_areas_cm < fly_size_range[1])
 
             if np.sum(cnt_area_check) == 1:
                 c = cnts[np.where(cnt_area_check)[0][0]]
@@ -527,11 +534,16 @@ def get_bg(filename, r, tracking_params=trackingParams, debugFlag=True,
 # -----------------------------------------------------------------------------
 # get center of mass of fly from image ROI        
 def get_cm(filename, bg, r, tracking_params=trackingParams, mean_intensity=130.0,
-           min_thresh=25, ellipseFlag=False, debugFlag=True, verbose=True):
+           min_thresh=25, ellipseFlag=False, debugFlag=True, verbose=True, pix2cm=trackingParams['pix2cm']):
     # define params
     fly_size_range = tracking_params['fly_size_range']
     morphSize = tracking_params['morph_size_2']
     bbox_pad = 10
+
+    # check that we have a pixel to cm conversion factor
+    if not pix2cm:
+        pix2cm = 1.0  # this will just keep everything in pixel units.
+        print("Warning: make sure 'fly_size_range' is set in pixels if not providing pix2cm conversion")
 
     # structuring element for morphological operations
     kernelRad = tracking_params['morph_size_1']
@@ -646,8 +658,9 @@ def get_cm(filename, bg, r, tracking_params=trackingParams, mean_intensity=130.0
         if len(cnts) > 0:
             # check area of detected contour to make sure it's the right size
             cnt_areas = np.asarray([cv2.contourArea(cnt) for cnt in cnts])
-            cnt_area_check = (cnt_areas > fly_size_range[0]) & \
-                             (cnt_areas < fly_size_range[1])
+            cnt_areas_cm = (pix2cm**2)*cnt_areas
+            cnt_area_check = (cnt_areas_cm > fly_size_range[0]) & \
+                             (cnt_areas_cm < fly_size_range[1])
 
             # this is the case when you find one contour of appropriate size
             if np.sum(cnt_area_check) == 1:
@@ -898,8 +911,7 @@ def visual_expresso_tracking_main(DATA_PATH, DATA_FILENAME, DEBUG_BG_FLAG=False,
     # =======================================
     # Estimate static background
     # =======================================
-    BG, _, _, mean_intensity, min_thresh_guess = get_bg(filename, ROI,
-                                                        debugFlag=DEBUG_BG_FLAG)
+    BG, _, _, mean_intensity, min_thresh_guess = get_bg(filename, ROI, debugFlag=DEBUG_BG_FLAG, pix2cm=PIX2CM)
 
     # if you want to save background
     if DEBUG_BG_FLAG:
@@ -913,7 +925,8 @@ def visual_expresso_tracking_main(DATA_PATH, DATA_FILENAME, DEBUG_BG_FLAG=False,
     xcm, ycm, body_angle, _, ell_width, ell_height, cnt_area = get_cm(filename, BG, ROI, mean_intensity=mean_intensity,
                                                                       min_thresh=min_thresh_guess,
                                                                       ellipseFlag=ELLIPSE_FIT_FLAG,
-                                                                      debugFlag=DEBUG_CM_FLAG)
+                                                                      debugFlag=DEBUG_CM_FLAG,
+                                                                      pix2cm=PIX2CM)
 
     # check to make sure that we actually tracked something
     if (xcm.size - np.sum(np.isnan(xcm))) < 3:
