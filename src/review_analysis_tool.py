@@ -207,7 +207,7 @@ class reviewTool:
 
         # --------------------------------------------
         # where to look for data
-        if os.path.exists(initDirectories[-1]):
+        if (len(initDirectories) > 0) and os.path.exists(initDirectories[-1]):
             self.init_dir = initDirectories[-1]
         else:
             self.init_dir = sys.path[0]
@@ -354,7 +354,10 @@ class reviewTool:
                 cap_tip_orient = self.flyData['cap_tip_orientation']
             else:
                 encoding = 'utf-8'
-                cap_tip_orient = self.flyData['cap_tip_orientation'].decode(encoding)
+                cap_tip_orient = self.flyData['cap_tip_orientation']
+                if not isinstance(cap_tip_orient, str):
+                    cap_tip_orient = cap_tip_orient.decode(encoding)
+
             xcm_trans = self.flyData['xcm_smooth']
             ycm_trans = self.flyData['ycm_smooth']
             self.xcm, self.ycm = invert_coord_transform(xcm_trans, ycm_trans,
@@ -372,6 +375,7 @@ class reviewTool:
     # ===================================================================
     @staticmethod
     def clear_combined_data(self):
+        # reset data
         self.data_file = None
         self.vid_file = None
         self.N_frames = 100
@@ -379,6 +383,30 @@ class reviewTool:
         self.cap = None
         self.dataFlag = False
 
+        # clear liquid level plots display
+        self.line11.set_data([], [])
+        self.line12.set_data([], [])
+        self.line21.set_data([], [])
+        self.line22.set_data([], [])
+        self.vline1.set_xdata(0)
+        self.vline2.set_xdata(0)
+        self.ax1.set_title('')
+
+        # remove video frame and tracking point
+        h_curr = self.img.height()  # get current image dimensions
+        w_curr = self.img.width()
+        img = np.zeros((w_curr, h_curr), dtype=np.uint8)  # generate a new image of all zeros
+        img = Image.fromarray(img).resize((w_curr, h_curr))
+        imgtk = ImageTk.PhotoImage(image=img, master=self.master)
+        self.img = imgtk
+        self.im_label.img = imgtk
+        self.im_label.configure(image=imgtk)
+
+        # implement changes
+        self.canvas.draw()
+
+        # reset slider to first frame
+        self.frame_slider.slider.set(0)
     # ===================================================================
     @staticmethod
     def update_display(self, val):
@@ -389,8 +417,10 @@ class reviewTool:
         # draw dot on fly
         if np.isnan(self.dset_bouts[val]):
             circ_color = (255, 0, 0)
+            title_color = (0.0, 0.0, 0.0, 1.0)
         else:
             circ_color = (0, 0, 255)
+            title_color = (1.0, 0.0, 0.0, 1.0)
         xcm = self.xcm[val]
         ycm = self.ycm[val]
         cv2.circle(frame, (int(xcm), int(ycm)), 2, circ_color, -1)
@@ -407,7 +437,7 @@ class reviewTool:
         self.vline1.set_xdata(val)
         self.vline2.set_xdata(val)
 
-        self.ax1.set_title('Frame {}/{}'.format(val, self.N_frames))
+        self.ax1.set_title('Frame {}/{}'.format(val, self.N_frames),color=title_color)
         self.canvas.draw()
 
 

@@ -104,7 +104,7 @@ The rightmost column of buttons underneath the batch analysis list box are used 
 
 ## Groupwise comparisons and statistics ##
 
-After extracting tracking and feeding information from the video and liquid level measurements, EAT allows users to compare summary statistics for this data across different fly groups. These comparisons are performed using a third GUI, which is accessed by running **`post_processing_gui.py`**. 
+After extracting tracking and feeding information from the video and liquid level measurements, EAT allows users to compare summary statistics for this data across different fly groups. These comparisons are performed using a third GUI, which is accessed by running **`post_processing_gui.py`** or by selecting *Open POST-process GUI* from the File drop-down menu in the main EAT GUI (`visual_expresso_gui_main.py`).
 
 ### Preparing and loading inputs ###
 
@@ -114,16 +114,71 @@ Similar to the two other GUIs discussed above, the post-processing GUI allows da
 
 ### Generating summary plots ###
 
-After loading at least one summary file into the post-processing GUI, plots can be generated using the tools in the bottom left of the GUI window. Specifically, the "Variable to Plot" drop-down menu allows the user to select the data they would like to visualize. After a plot variable has been selected in this drop-down menu, the \<Update Display> button can be used to generate a figure on the righthand side of the GUI window, which will include one plot object (e.g. box and whisker plot or time series trace with confidence intervals) per summary file loaded into the GUI. As the selected variable is changed or new summary files are added/removed, the \<Update Display> button can be used to update the plot window to reflect these changes. The options for variables to plot include:
-* *Number of Meals*: number of meal bouts detected per fly, displayed as a box and whisker plot.
-* *Total Volume*: total volume of fluid consumed by each fly during the experimental run, in nanoliters, displayed as a box and whisker plot.
-* *Total Duration Eating*: total time spent eating by each fly during the experimental run, in seconds, displayed as a box and whisker plot.
-* *Total Duration Eating*: total time spent eating by each fly during the experimental run, in seconds, displayed as a box and whisker plot.
-* *Latency to Eat*: duration of time from start of experiment to a fly's first meal, in seconds, displayed as a box and whisker plot.
-* *Cumulative Dist.*: total distance traveled by each fly throught the experimental run, in centimeters, displayed as a box and whisker plot.
-* *Average Speed*: average speed of each fly's movement during the experimental run, in cm/s, displayed as a box and whisker plot. NB: this average is taken only when the fly is detected as moving.
-* *Fraction Time Moving*: fraction of time each fly spends moving throughout the experiment, displayed as a box and whisker plot.
-* *Pre Meal Dist.*: total distance traveled by each fly prior to the beginning of its first meal, in centimeters, displayed as a box and whisker plot.
-* *Food Zone Frac. (pre meal)*: fraction of time each fly spends in the "food zone" prior to its first meal, displayed as a box and whisker plot. The food zone is defined as a circle centered at the capillary tip (*x*=*y*=0) with radius defined in `v_expresso_gui_params.py` (`food_zone_rad` in `analysisParams`). This radius is set to 0.6 cm by default.
-* *Food Zone Frac. (post meal)*: same as above but for time window after the start of each fly's first meal until the end of the experimental run. Displayed as a box and whisker plot.
-* *Food Zone Frac. (post meal)*: same as above but for time window after the start of each fly's first meal until the end of the experimental run. Displayed as a box and whisker plot.
+After loading at least one summary file into the post-processing GUI, plots can be generated using the tools in the bottom left of the GUI window. Specifically, the "Variable to Plot" drop-down menu allows the user to select the data they would like to visualize. After a plot variable has been selected in this drop-down menu, the \<Update Display> button can be used to generate a figure on the righthand side of the GUI window, which will include one plot object (e.g. box and whisker plot or time series trace with confidence intervals) per summary file loaded into the GUI. As the selected variable is changed or new summary files are added/removed, the \<Update Display> button can be used to update the plot window to reflect these changes. NB: the "Exlude flies without meals" checkbox can be used to restrict plotting to only the flies within each summary file who consumed at least one meal during the experimental run. 
+
+![](gifs/post_processing.gif)
+
+The options for variables to plot include:
+* *Number of Meals*: number of meal bouts detected per fly (box and whisker plot).
+* *Total Volume*: total volume of fluid consumed by each fly during the experimental run, in nanoliters (box and whisker plot).
+* *Total Duration Eating*: total time spent eating by each fly during the experimental run, in seconds (box and whisker plot).
+* *Total Duration Eating*: total time spent eating by each fly during the experimental run, in seconds (box and whisker plot).
+* *Latency to Eat*: duration of time from start of experiment to a fly's first meal, in seconds (box and whisker plot).
+* *Cumulative Dist.*: total distance traveled by each fly throught the experimental run, in centimeters (box and whisker plot).
+* *Average Speed*: average speed of each fly's movement during the experimental run, in cm/s (box and whisker plot). NB: this average is taken only when the fly is detected as moving.
+* *Fraction Time Moving*: fraction of time each fly spends moving throughout the experiment (box and whisker plot).
+* *Pre Meal Dist.*: total distance traveled by each fly prior to the beginning of its first meal, in centimeters (box and whisker plot).
+* *Food Zone Frac. (pre meal)*: fraction of time each fly spends in the "food zone" prior to its first meal (box and whisker plot). The food zone is defined as a circle centered at the capillary tip (*x*=*y*=0) with radius defined in `v_expresso_gui_params.py` (`food_zone_rad` in `analysisParams`). This radius is set to 0.6 cm by default.
+* *Food Zone Frac. (post meal)*: same as above but for time window after the start of each fly's first meal until the end of the experimental run (box and whisker plot).
+* *Cumulative Dist. Time Series*: cumulative distance as a function of time (groupwise mean +/- s.e.) throughout the experimental run, in centimeters (time series plot).
+* *Radial Dist. Time Series*: radial distance --- i.e. distance from the capillary tip --- as a function of time (groupwise mean +/- s.e.) throughout the experimental run, in centimeters (time series plot).
+* *Mealwise Start Time*: start time of each meal eaten by each fly throughout the experimental run, in seconds (box and whisker plot). NB: in contrast to the above options, wherein each fly contributes a single data point or time series, in "Mealwise" plots each meal contributes a data point to the distribution.
+* *Mealwise End Time*: end time of each meal eaten by each fly throughout the experimental run, in seconds (box and whisker plot). 
+* *Mealwise Duration*: duration of each meal eaten by each fly throughout the experimental run, in seconds (box and whisker plot).
+* *Mealwise Volume*: volume of each meal eaten by each fly throughout the experimental run, in nanoliters (box and whisker plot).  
+* *Mealwise Dwell Time*: duration of time spent by each fly in the "food zone" (see above) after each meal, in seconds (box and whisker plot).  
+
+To save any of the plots generated using the post-processing GUI, use the \<Save Plot> button, which opens a file dialog allowing the user to select a save name and location for the currently displayed plot. By default, plots are saved in .pdf format, but can be saved in any format allowed by `matplotlib`.
+
+### Hypothesis testing ###
+
+In addition to visualizing groupwise differences, the post-processing GUI also allows users to perform hypothesis testing on the selected plot variable across groups using the \<Update Stats> button. The type of hypothesis test performed depends on the selected plot variable, and is displayed under "Statistical Test:" in the bottom lefthand side of the GUI window. For most variables, a Kruskal--Wallis one-way analysis of variance is used (`scipy.stats.kruskal`), with post hoc Dunn's test (`scikit_posthocs.posthoc_dunn`). For time series variables like *Cumulative Dist. Time Series* and *Radial Dist. Time Series*, a permutation test is used (custom code).
+
+The results of hypothesis tests run using \<Update Stats> are printed in the Python terminal and can be saved to a .csv file using the \<Save Stats> button below the post-processing GUI plot window. The saved .csv files contain the omnibus p value, as well as a matrix of pairwise comparison p values across groups. 
+
+## Miscellaneous ##
+
+The preceding sections describe the typical usage of the EAT code for analysis of Visual Expresso data. However, some users might mind the following additional features useful.
+
+### Debugging tools ###
+
+The main EAT GUI (`visual_expresso_gui_main.py`) contains a drop-down menu ("Debugging Options") with a set of options that can be toggled on for debugging meal bout detection and fly body tracking. When on, the debugging process is active, and this is indicated in the drop-down menu by the presence of a checkmark next to the selection. By default, all debugging options are set to the "off" state. These options are as follows:
+
+* *Save All Plots:* when "on," all figures generated for single fly analysis (i.e. not batch analysis) within the main EAT GUI will be saved automatically in the same directory as the source data. 
+
+* *Bout Detection Debug:* when "on," the \<Plot Channel> button will produce a series of additional plots. These include plots showing:
+    * Detected changepoints in the derivative of liquid level with respect to time, as well as the (modified) z-scored slopes of each between-changepoint interval as compared to the threshold value for meal bout designation.
+    * An estimation of the evaporation rate from the capillary tube using liquid level data from time periods in which the fly is not detected as eating.
+    * Plots of 1) liquid level and the fly's distance from the capillary tip and 2) liquid level and instantaneous speed on the same axes to show how movement variables related to changes in liquid level (only possible if using both liquid level and video data).
+
+![](gifs/bout_debug.gif)
+
+* *Tracking Debug:* when "on," clicking the \<Analyze Video> button opens windows showing the 1) the process of background estimation and 2) the tracking of the fly body's center of mass. This is illustrated below. In addition, when *Tracking Debug* is "on," the estimated background for each individually analyzed video is saved as .png file in the same directory as the source video. 
+
+![](gifs/tracking_debug.gif)
+
+In addition, **`review_analysis_tool.py`** can be used to check both meal detection and body center of mass tracking. Running `review_analysis_tool.py` opens an instance of a GUI window that allows users to examine the tracking and meal detection for a single fly. The inputs to this tool are  "_COMBINED_DATA.hdf5" files (produced in the main EAT GUI), and once one of these files is loaded, both the liquid level data --- raw (top) and smoothed (bottom) with meal bouts annotated in red --- and the first frame of the video are displayed in the GUI window. The user can then scroll through the various time points in the video, which updates both the video frame being displayed and the positon of a vertical line indicating the current time point on the liquid level plots. Overlaid on the displayed video frames is a circle marker indicating the estimated centroid of the fly body. This circle marker is colored red during time intervals corresponding to detected meal bouts, and blue otherwise. 
+
+Using this tool, users can both confirm the accuracy of the video tracking and check that detected meal bouts correspond to time intervals when the fly is near enough to the capillary tip to drink from it. 
+
+![](gifs/review_analysis_tool.gif)
+
+### Parameter settings ###
+
+The **`v_expresso_gui_params.py`** file contains a number of parameters used for analyses throughout the EAT code. In general these parameters should be well-suited to a wide variety of experimental setups; however, below we list a few entries that might be changed for convenience:
+
+
+### Recommended data organization ###
+
+
+

@@ -70,6 +70,6 @@ trackingParams = {'fly_size_range' : [20, 100] ,
             'vial_length_cm':4.42,
             'vial_width_cm':1.22}
 
-initDirectories = []
+initDirectories = ["C:\\Users\\samcw\\Dropbox\\Paper Manuscripts\\Expresso paper\\User Guide\\data\\example_data"]
              
              
