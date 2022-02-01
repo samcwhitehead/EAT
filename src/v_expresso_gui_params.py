@@ -46,7 +46,7 @@ guiParams = {'bgcolor': 'white',
 
 trackingParams = {'fly_size_range': [0.01, 0.08],  # in cm^2, was [20, 100] in pix^2
                   'bg_min_dist': 1,  # cm; was 40 pix
-                  'MOG_var_thresh': 125,  
+                  'MOG_var_thresh': 125,
                   'morph_size_1': 3,
                   'morph_size_2': 5,
                   'fly_pix_val_max': 100,  # assumes fly is dark against light background in 8bit image
