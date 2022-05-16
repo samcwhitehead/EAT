@@ -18,6 +18,7 @@ import re
 import h5py
 
 from load_hdf5_data import load_hdf5, my_add_h5_dset, my_add_dset_to_dict
+from v_expresso_utils import idx_by_thresh
 from bout_analysis_func import (check_data_set, plot_channel_bouts, bout_analysis, changepts_to_bouts, merge_meal_bouts,
                                 check_bouts)
 from v_expresso_gui_params import (analysisParams, trackingParams)
@@ -1369,3 +1370,172 @@ def save_comb_summary_hdf5(entry_list, h5_filename,
 
     # notify user of completion
     print('Completed saving {}'.format(h5_filename))
+
+
+# ----------------------------------------------------------------------------------------------------
+# function to save turn rate in user-defined period surrounding a meal
+# NB: should maybe try to generalize this, but not sure how many similar instances there will be
+def save_meal_aligned_turn_rate(basic_entries, save_filename, window_left_sec=0.0, window_right_sec=10.0, meal_num=0,
+                                turn_vel_thresh=analysisParams['turn_vel_thresh'],
+                                turn_ang_thresh=analysisParams['turn_ang_thresh']):
+
+    # suffix for filename with both feeding and tracking data
+    data_suffix = '_COMBINED_DATA.hdf5'
+
+    # we'll need to read x and y data to calculate turn rate
+    varx = 'xcm_smooth'
+    vary = 'ycm_smooth'
+
+    # ---------------------------------------------------------------
+    # initialize save output
+    # ---------------------------------------------------------------
+    data_all = []
+    has_data_flag = []
+
+    # ----------------------------------------------------
+    # loop over data files
+    for ith, ent in enumerate(basic_entries):
+        # get full filename for current hdf5 analysis file, as well as file id
+        hdf5_filename = ent + data_suffix
+        if os.path.exists(hdf5_filename):
+            ent_id = os.path.basename(ent)
+            # read out meal aligned x, y, and t data (t is overkill, but need to get sampling freq)
+            data_x = get_meal_aligned_data(hdf5_filename, varx, window_left_sec=window_left_sec,
+                                           window_right_sec=window_right_sec, meal_num=meal_num)
+            data_y = get_meal_aligned_data(hdf5_filename, vary, window_left_sec=window_left_sec,
+                                           window_right_sec=window_right_sec, meal_num=meal_num)
+            data_t = get_meal_aligned_data(hdf5_filename, 't', window_left_sec=window_left_sec,
+                                           window_right_sec=window_right_sec, meal_num=meal_num)
+        else:
+            data_x = None
+            data_y = None
+            data_t = None
+
+        # make sure we got data for both x and y
+        if data_x is None or data_y is None:
+            print('Failed to load data for {} -- skipping'.format(hdf5_filename))
+            has_data_flag.append(False)
+            continue
+
+        # use x and y info to calculate turn rate in this window
+        # (first detect turns, then take that number divided by duration of window)
+        dt = np.mean(np.diff(data_t))
+        turn_pts = detect_turn_points(data_x, data_y, dt=dt, thresh=turn_vel_thresh, min_turn_angle=turn_ang_thresh)
+
+        turn_rate = np.size(turn_pts)/np.abs(window_right_sec - window_left_sec)
+
+        # add current turn rate data to "all" list
+        data_all.append(turn_rate)
+        has_data_flag.append(True)  # also keep track of the fact that this file worked
+
+    # --------------------------------------------------------------------
+    # write combined data to workbook
+    # --------------------------------------------------------------------
+
+    # initialize workbook and sheet
+    wb = Workbook()
+    ws = wb.active
+    ws.title = 'Meal-aligned turn rate'
+
+    # write meal number in first row
+    meal_num_heading = ['Meal Number:', str(meal_num + 1)]  # NB: adding one to account for Python indexing
+    ws.append(meal_num_heading)
+
+    # write column headers in second row
+    data_heading = ['Filename', 'Turn rate (turns/s)']
+    ws.append(data_heading)
+
+    # remove files in which there is no data (valid entries are ones with data)
+    # basic_entries_valid = [ent for (kth, ent) in enumerate(basic_entries) if has_data_flag[kth]]
+    basic_entries_valid = [ent for (tf, ent) in zip(has_data_flag, basic_entries) if tf]
+
+    # from here, loop over files and write the turn rate as a row
+    for (ent, trn_rate) in zip(basic_entries_valid, data_all):
+        # construct row ( [filename, turn rate] ) and append to worksheet
+        ws.append([os.path.basename(ent), trn_rate])
+
+    # set column width to be wider (more readable)
+    for col in ws.columns:
+        col_str = get_column_letter(col[0].column)
+        ws.column_dimensions[col_str].width = 22
+    # save workbook
+    wb.save(save_filename)
+
+    return
+
+
+# -------------------------------------------------------------------------------------
+# NB: the following 3 functions have to do with the calculation of turn rate (above)
+# -------------------------------------------------------------------------------------
+# function to calculate 2d trajectory curvature
+def calc_curvature(x, y, dt=1.0):
+    # get derivatives
+    x_dot = (1.0 / dt) * np.insert(np.diff(x), 0, 0.0)
+    y_dot = (1.0 / dt) * np.insert(np.diff(y), 0, 0.0)
+
+    x_ddot = (1.0 / dt) * np.insert(np.diff(x_dot), 0, 0.0)
+    y_ddot = (1.0 / dt) * np.insert(np.diff(y_dot), 0, 0.0)
+
+    # suppress warnings for divide by zero, since we'll almost certainly get them
+    invalid_err_setting = np.geterr()
+    np.seterr(invalid='ignore')
+
+    # calculate speed
+    vel_mag = np.sqrt(x_dot ** 2 + y_dot ** 2)
+
+    # calculate curvature (formula from wikipedia)
+    kappa = np.abs(x_dot * y_ddot - y_dot * x_ddot) / (vel_mag ** 3)
+
+    # return warning to normal
+    np.seterr(invalid=invalid_err_setting['invalid'])
+
+    # return curvature
+    return kappa
+
+
+# -------------------------------------------------------------------------------------
+# function to get angle of vector between successive points in 2d trajectory
+def get_traj_angles(x, y):
+    # take arctan of vectors between successive points (traja also restricts to positive vals)
+    # ang = np.abs(np.arctan(np.diff(y)/np.diff(x)))
+    ang = np.unwrap(np.arctan2(np.diff(y), np.diff(x)))
+
+    # to keep array lengths the same, double up the first value
+    return np.insert(ang, 0, ang[0])
+
+
+# -------------------------------------------------------------------------------------
+# function to detect turns in 2d trajectory (based on angular velocity and curvature)
+def detect_turn_points(x, y, dt=1.0, thresh=1.2, min_turn_angle=None):
+    # first calculate step by step angle and curvature (curvature used later)
+    ang = get_traj_angles(x, y)
+    # ang_full = np.insert(np.arctan(np.diff(y)/np.diff(x)),0,0.0)  # also get angle vals that include negative range
+    kappa = calc_curvature(x, y)
+
+    # get derivative of this wrt to time
+    theta_diff = (1.0 / dt) * np.abs(np.diff(ang))  # diff in angle
+
+    # insert zero to keep arrays the same length
+    theta_diff = np.insert(theta_diff, 0, 0)
+
+    # find where theta_diff exceeds threshold value
+    turn_idx = np.where((theta_diff > thresh), np.full(x.shape, True), np.full(x.shape, False))
+
+    # check for false positives by looking at the difference between initial and final angles
+    turn_idx_list = idx_by_thresh(turn_idx)
+    turn_angles = []
+    for tidx in turn_idx_list:
+        start_ind = np.max(np.array([tidx[0] - 1, 0]))
+        end_ind = np.min(np.array([tidx[-1] + 1, ang.size - 1]))
+        turn_angles.append(np.abs(ang[end_ind] - ang[start_ind]))
+
+    if min_turn_angle:
+        turn_idx_list = [turn_idx_list[ith] for ith in range(len(turn_idx_list)) if (turn_angles[ith] > min_turn_angle)]
+
+    # now reduce list of indices in vicinity of turn to just one index (the turn point)
+    # NB: this is determined by peak in curvature (could i just have skipped right to this?)
+    turn_pts = [idx[np.argmax(kappa[idx])] for idx in turn_idx_list]
+
+    # return these detected turn points
+    return np.asarray(turn_pts)  # , turn_idx_list, turn_angles
+

@@ -33,7 +33,9 @@ analysisParams = {'wlevel': 6,  # 3 , #4
                   'feeding_dist_min_y': 0.5,  # cm #0.5
                   'feeding_move_frac_thresh': 0.5,  # fraction
                   'feeding_vel_max': 0.1,  # cm/s
-                  'food_zone_rad': 0.6}  # cm
+                  'food_zone_rad': 0.6,  # cm
+                  'turn_vel_thresh': 1.2,  # rad/s
+                  'turn_ang_thresh': 3.1415/8.0}  # rad
 
 guiParams = {'bgcolor': 'white',
              'listbgcolor': '#222222',

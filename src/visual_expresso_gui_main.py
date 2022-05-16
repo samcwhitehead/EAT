@@ -41,7 +41,8 @@ from bout_and_vid_analysis import (channel2basic, vid2basic, basic2channel,
                                    basic2vid, flyCombinedData_to_hdf5,
                                    save_comb_time_series, save_comb_summary,
                                    bout_analysis_wTracking, merge_v_expresso_data,
-                                   plot_bout_aligned_var, save_comb_summary_hdf5)
+                                   plot_bout_aligned_var, save_comb_summary_hdf5,
+                                   save_meal_aligned_turn_rate)
 from v_expresso_image_lib import (visual_expresso_tracking_main,
                                   process_visual_expresso,
                                   plot_body_cm, plot_body_vel,
@@ -915,7 +916,7 @@ class BatchCombinedFrame(Frame):
 
         # define names/labels for buttons + listboxes
         self.button_names = [['add', 'remove', 'clear_all'],
-                             ['analyze', 'comb_data', 'save_sum', 'save_ts'],
+                             ['analyze', 'comb_data', 'save_sum', 'save_ts', 'save_turn_rate'],
                              ['plot_channel', 'plot_heatmap', 'plot_cum_dist', 'plot_xy', 'plot_dist_mag']]
         self.button_labels = [['Add Data to Batch',
                                'Remove Selected',
@@ -923,12 +924,13 @@ class BatchCombinedFrame(Frame):
                               ['Analyze/Save Data',
                                'Combine Data Types',
                                'Save Combined Summary',
-                               'Save Time Series'],
+                               'Save Time Series',
+                               'Save Turn Rate'],
                               ['Plot Channel Analysis',
                                'Plot Heatmap',
                                'Plot Cumulative Distance',
-                               'Plot Post-Meal XY',
-                               'Plot Post-Meal Radial Dist.']]
+                               'Plot Meal-aligned XY',
+                               'Plot Meal-aligned Radial Dist.']]
 
         # generate basic panel layout                      
         buildBatchPanel(self, self.button_names, self.button_labels,
@@ -942,6 +944,7 @@ class BatchCombinedFrame(Frame):
         self.buttons['comb_data']['command'] = lambda: self.comb_data_batch(root)
         self.buttons['save_sum']['command'] = self.save_batch_comb
         self.buttons['save_ts']['command'] = self.save_time_series
+        self.buttons['save_turn_rate']['command'] = lambda: self.save_turn_rate(root, init_vals=[1, 0.0, 5.0])
         self.buttons['plot_channel']['command'] = self.plot_channel_batch
         self.buttons['plot_heatmap']['command'] = self.plot_heatmap_batch
         self.buttons['plot_cum_dist']['command'] = self.plot_cum_dist_batch
@@ -1065,7 +1068,7 @@ class BatchCombinedFrame(Frame):
 
         self.comb_file_list = batch_list
 
-    #
+
     # -----------------------------------------------------
     # save batch video summary
     # -----------------------------------------------------
@@ -1109,6 +1112,57 @@ class BatchCombinedFrame(Frame):
             save_comb_time_series(data_filenames, savedir)
 
     # ---------------------------------------------------------------------
+    # save turn rate information for specified period of time around meal
+    # ---------------------------------------------------------------------
+    def save_turn_rate(self, root, init_vals=[1, 0.0, 5.0]):
+        batch_list = self.listbox.get(0, END)
+        if len(batch_list) < 1:
+            tkMessageBox.showinfo(title='Error', message='Add data to batch box for batch analysis')
+            return
+        else:
+            # --------------------------------------------------------------------------
+            # get turn rate options from user using pop-up window with entry boxes
+            options_entry_list = ['Meal Number', 'Time before meal end (s)', 'Time after meal end (s)']
+            options_init_vals = init_vals
+            options_popup = myEntryOptions(root.master, root, entry_list=options_entry_list,
+                                           title_str='Meal-aligned {} Options'.format('Turn Rate'),
+                                           init_vals=options_init_vals)
+
+            # wait for user input before preceding
+            options_popup.wait_window()
+
+            # ------------------------------------------------------------------------------------
+            # extract param values from pop-up window (which should have been sent to "root")
+            try:
+                meal_num = int(root.popup_entry_values[options_entry_list[0]])
+                window_left_sec = float(root.popup_entry_values[options_entry_list[1]])
+                window_right_sec = float(root.popup_entry_values[options_entry_list[2]])
+            except (AttributeError, KeyError):
+                tkMessageBox.showinfo(title='Error', message='No values selected for plot params')
+                return
+
+            # --------------------------------------------------------------------------------------
+            # request filename from user
+            prompt_str = "Select save filename for meal-aligned trajectory turn rate"
+            xlsx_filename = tkFileDialog.asksaveasfilename(defaultextension=".xlsx", title=prompt_str)
+
+            # check that we got a valid filename
+            if not xlsx_filename:
+                print('Invalid save name')
+
+            # --------------------------------------------------------------------------------------
+            # make meal indexing more intuitive
+            if meal_num > 0:
+                meal_num = meal_num - 1
+
+            # ------------------------------------------------------------------------------------------
+            # run function to save turn rate info
+            save_meal_aligned_turn_rate(batch_list, xlsx_filename, window_left_sec=window_left_sec,
+                                        window_right_sec=window_right_sec, meal_num=meal_num)
+
+            return
+
+    # ---------------------------------------------------------------------
     # for each list element, combine channel and video data into one file
     # ---------------------------------------------------------------------
     def comb_data_batch(self, root):
@@ -1144,6 +1198,7 @@ class BatchCombinedFrame(Frame):
                 flyCombinedData_to_hdf5(flyCombinedData)
 
                 print('Successfully combined data for {}'.format(data_file))
+
     # ---------------------------------------------------------------------
     # plot channel (feeding) data summary
     # ---------------------------------------------------------------------
@@ -1232,7 +1287,7 @@ class BatchCombinedFrame(Frame):
             options_init_vals = init_vals
             options_chkbtn_list = ['Save data output?']
             options_popup = myEntryOptions(root.master, root, entry_list=options_entry_list,
-                                           title_str='Post-meal {} Plot Options'.format(data_name),
+                                           title_str='Meal-aligned {} Plot Options'.format(data_name),
                                            init_vals=options_init_vals,
                                            chkbtn_list=options_chkbtn_list)
 
@@ -1292,6 +1347,7 @@ class BatchCombinedFrame(Frame):
 
             # try to keep labels from being cut off
             fig.tight_layout()
+
 
 # =============================================================================
 # Main class for GUI

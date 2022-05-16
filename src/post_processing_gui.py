@@ -492,9 +492,10 @@ def load_summary_hdf5(fn, plot_var, onlyEatersFlag=False):
     # --------------------------------
     # return data and time
     return data_curr, t_curr
+
+
 # =============================================================================
 """
-
 Define frame for loading data. 
 
 This should allow the user to select a summary analysis file (from the main 
@@ -667,14 +668,14 @@ class DataLoader(Frame):
 
 # =============================================================================
 """
-
 Define frame for setting data name as well as other plot misc. plot options
 
- 
 """
+
+
 # =============================================================================
 class DataOptions(Frame):
-    """ Frame containg buttons to name data sets and set misc. options"""
+    """ Frame containing buttons to name data sets and set misc. options"""
 
     def __init__(self, parent, col=0, row=0):
         Frame.__init__(self, parent.master)
@@ -717,6 +718,7 @@ class DataOptions(Frame):
 
         # reset stats
         parent.statsCalcFlag.set(False)
+
 
 # =============================================================================
 """

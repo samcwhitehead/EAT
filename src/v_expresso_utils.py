@@ -6,7 +6,7 @@ Created on Tue May 22 15:33:24 2018
 
 A handful of useful functions to be used throughout expresso analysis code
 """
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 import sys
 import numpy as np
 from matplotlib import pyplot as plt
@@ -14,13 +14,15 @@ if sys.version_info[0] < 3:
     from Tkinter import *
 else:
     from tkinter import *
-#-----------------------------------------------------------------------------
+
+
+# -----------------------------------------------------------------------------
 # tool for pulling out indices of an array with elements above thresh value
 def idx_by_thresh(signal,thresh = 0.1):
     import numpy as np
     idxs = np.squeeze(np.argwhere(signal > thresh))
     try:
-        split_idxs = np.squeeze(np.argwhere(np.diff(idxs) > 1))
+        split_idxs = np.squeeze(np.argwhere(np.diff(idxs) > 1)) + 1
     except IndexError:
         #print 'IndexError'
         return None
@@ -34,49 +36,53 @@ def idx_by_thresh(signal,thresh = 0.1):
         #print 'value error'
         np.split(idxs,split_idxs)
         return None
-    #idx_list = [x[1:] for x in idx_list]
+    # idx_list = [x[1:] for x in idx_list]
     idx_list = [x for x in idx_list if len(x)>0]
     return idx_list
 
-#-----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
 # handle nans
 def nan_helper(y):
     return np.isnan(y),lambda z: z.nonzero()[0]
 
-#------------------------------------------------------------------------------
+
+# ------------------------------------------------------------------------------
 # interpolate through nan values (missing track points)
 def interp_nans(y,min_length=1):
     z = y.copy()
-    #print('z is a {}'.format(type(z)))
+    # print('z is a {}'.format(type(z)))
     nans, x = nan_helper(z)
-    #eliminate small data chunks (likely spurious)
+    # eliminate small data chunks (likely spurious)
     not_nan_idx = idx_by_thresh(~nans)
     for nidx in not_nan_idx:    
         if len(nidx) < min_length:
-            #print(nidx)
+            # print(nidx)
             z[nidx] = np.nan
             nans[nidx] = np.nan
-    #interpolate through remaining points
+    # interpolate through remaining points
     z[nans] = np.interp(x(nans),x(~nans),z[~nans])
     return z
-    
-#------------------------------------------------------------------------------
+
+
+# ------------------------------------------------------------------------------
 # rolling window that avoids looping
 def rolling_window(a, window):
     shape = a.shape[:-1] + (a.shape[-1] - window + 1, window)
     strides = a.strides + (a.strides[-1],)
     return np.lib.stride_tricks.as_strided(a, shape=shape, strides=strides)
 
-#------------------------------------------------------------------------------
+
+# ------------------------------------------------------------------------------
 # hampel filter 
 def hampel(x,k=7, t0=3):
-    '''taken from stack overflow
+    """taken from stack overflow
     x= 1-d numpy array of numbers to be filtered
     k= number of items in window/2 (# forward and backward wanted to capture in median filter)
     t0= number of standard deviations to use; 3 is default
-    '''
+    """
     dk = int((k-1)/2)
-    y = x.copy() #y is the corrected series
+    y = x.copy()  # y is the corrected series
     L = 1.4826
     
     # calculate rolling median
@@ -95,9 +101,10 @@ def hampel(x,k=7, t0=3):
     
     y[outlier_idx] = rolling_median[outlier_idx]
     
-    return(y)
+    return y
 
-#------------------------------------------------------------------------------
+
+# ------------------------------------------------------------------------------
 # rolling average filter  
 def moving_avg(x,k=3):
     '''taken from stack overflow
@@ -111,11 +118,12 @@ def moving_avg(x,k=3):
     rolling_mean = np.nanmean(rolling_window(y,k),-1)
     rolling_mean = np.concatenate((y[:dk], rolling_mean, y[-dk:]))
     
-    return(rolling_mean)
-#------------------------------------------------------------------------------
+    return rolling_mean
+
+
+# ------------------------------------------------------------------------------
 # interpolation for tracking data
-def interpolate_tracks(X, dist_thresh=0.1, slope_thresh=1.0, N_pad=2, 
-                       PLOT_FLAG=False):
+def interpolate_tracks(X, dist_thresh=0.1, slope_thresh=1.0, N_pad=2, PLOT_FLAG=False):
     X_out = X.copy()
     nan_idx = np.isnan(X)
     
@@ -171,16 +179,17 @@ def interpolate_tracks(X, dist_thresh=0.1, slope_thresh=1.0, N_pad=2,
         ax.plot(np.arange(len(X)),X,'k')
     
     return X_out
-    
-#------------------------------------------------------------------------------
+
+
+# ------------------------------------------------------------------------------
 # remove short duration tracks from time series--likely spurious
-def remove_nubs(y,min_length=50):
+def remove_nubs(y, min_length=50):
     z = y.copy()
     nans, x = nan_helper(z)
     not_nan_idx = idx_by_thresh(~nans)
     for nidx in not_nan_idx:    
         if len(nidx) < min_length:
-            #print(nidx)
+            # print(nidx)
             z[nidx] = np.nan
             if (nidx[-1]+1) < len(z):
                 if not np.isnan(z[nidx[-1]+1]):
@@ -190,7 +199,8 @@ def remove_nubs(y,min_length=50):
                     z[nidx[0]-1] = np.nan
             nans[nidx] = np.nan
     return z
-    
+
+
 # -----------------------------------------------------------------------------
 def get_curr_screen_geometry():
     """
@@ -208,4 +218,4 @@ def get_curr_screen_geometry():
     root.state('iconic')
     geometry = root.winfo_geometry()
     root.destroy()
-    return geometry      
+    return geometry
