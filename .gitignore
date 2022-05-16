@@ -1,3 +1,4 @@
 *.pyc
 dat/bout_annotations/annotations_saumya/plots_*
 ignr*.py
+dat/
