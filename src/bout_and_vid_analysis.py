@@ -1529,6 +1529,8 @@ def detect_turn_points(x, y, dt=1.0, thresh=1.2, min_turn_angle=None):
     turn_idx_list_ccw = idx_by_thresh(turn_idx_ccw)
     turn_idx_list = turn_idx_list_cw + turn_idx_list_ccw
 
+    turn_idx_list.sort(key=lambda s: s[0])   # sort list entries by first index
+
     # check for false positives by looking at the difference between initial and final angles
     # turn_idx_list = idx_by_thresh(turn_idx)
     turn_angles = []
