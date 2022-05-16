@@ -1513,16 +1513,24 @@ def detect_turn_points(x, y, dt=1.0, thresh=1.2, min_turn_angle=None):
     kappa = calc_curvature(x, y)
 
     # get derivative of this wrt to time
-    theta_diff = (1.0 / dt) * np.abs(np.diff(ang))  # diff in angle
+    theta_diff = (1.0 / dt) * np.diff(ang)  # diff in angle -- SIGNED
+    # theta_diff = (1.0 / dt) * np.abs(np.diff(ang))  # diff in angle
 
     # insert zero to keep arrays the same length
     theta_diff = np.insert(theta_diff, 0, 0)
 
     # find where theta_diff exceeds threshold value
-    turn_idx = np.where((theta_diff > thresh), np.full(x.shape, True), np.full(x.shape, False))
+    # NB: testing out separating by cw and ccw turns to keep turning periods from being merged
+    turn_idx_cw = np.where((theta_diff > thresh), np.full(x.shape, True), np.full(x.shape, False))
+    turn_idx_ccw = np.where((-1 * theta_diff > thresh), np.full(x.shape, True), np.full(x.shape, False))
+
+    # get list whose entries are indices of putative turns
+    turn_idx_list_cw = idx_by_thresh(turn_idx_cw)
+    turn_idx_list_ccw = idx_by_thresh(turn_idx_ccw)
+    turn_idx_list = turn_idx_list_cw + turn_idx_list_ccw
 
     # check for false positives by looking at the difference between initial and final angles
-    turn_idx_list = idx_by_thresh(turn_idx)
+    # turn_idx_list = idx_by_thresh(turn_idx)
     turn_angles = []
     for tidx in turn_idx_list:
         start_ind = np.max(np.array([tidx[0] - 1, 0]))
