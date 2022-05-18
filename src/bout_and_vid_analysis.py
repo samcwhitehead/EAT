@@ -1527,7 +1527,17 @@ def detect_turn_points(x, y, dt=1.0, thresh=1.2, min_turn_angle=None):
     # get list whose entries are indices of putative turns
     turn_idx_list_cw = idx_by_thresh(turn_idx_cw)
     turn_idx_list_ccw = idx_by_thresh(turn_idx_ccw)
-    turn_idx_list = turn_idx_list_cw + turn_idx_list_ccw
+
+    # handle cases when we don't have any turns, only turns of one direction, etc
+    if (turn_idx_list_cw is None) and (turn_idx_list_ccw is None):
+        print('Could not detect any turns')
+        return np.array([])
+    elif (turn_idx_list_cw is None) and ~(turn_idx_list_ccw is None):
+        turn_idx_list = turn_idx_list_ccw
+    elif ~(turn_idx_list_cw is None) and (turn_idx_list_ccw is None):
+        turn_idx_list = turn_idx_list_cw
+    else:
+        turn_idx_list = turn_idx_list_cw + turn_idx_list_ccw
 
     turn_idx_list.sort(key=lambda s: s[0])   # sort list entries by first index
 

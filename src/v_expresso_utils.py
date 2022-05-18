@@ -18,12 +18,12 @@ else:
 
 # -----------------------------------------------------------------------------
 # tool for pulling out indices of an array with elements above thresh value
-def idx_by_thresh(signal,thresh = 0.1):
+def idx_by_thresh(signal, thresh=0.1):
     import numpy as np
     idxs = np.squeeze(np.argwhere(signal > thresh))
     try:
         split_idxs = np.squeeze(np.argwhere(np.diff(idxs) > 1)) + 1
-    except IndexError:
+    except (IndexError, ValueError):
         #print 'IndexError'
         return None
     #split_idxs = [split_idxs]
