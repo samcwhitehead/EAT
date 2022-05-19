@@ -1422,7 +1422,7 @@ def save_meal_aligned_turn_rate(basic_entries, save_filename, window_left_sec=0.
         dt = np.mean(np.diff(data_t))
         turn_pts = detect_turn_points(data_x, data_y, dt=dt, thresh=turn_vel_thresh, min_turn_angle=turn_ang_thresh)
 
-        turn_rate = np.size(turn_pts)/np.abs(window_right_sec - window_left_sec)
+        turn_rate = float(np.size(turn_pts))/np.abs(window_right_sec - window_left_sec)
 
         # add current turn rate data to "all" list
         data_all.append(turn_rate)

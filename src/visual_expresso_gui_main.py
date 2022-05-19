@@ -1160,6 +1160,8 @@ class BatchCombinedFrame(Frame):
             save_meal_aligned_turn_rate(batch_list, xlsx_filename, window_left_sec=window_left_sec,
                                         window_right_sec=window_right_sec, meal_num=meal_num)
 
+            print('Completed saving turn rate data')
+
             return
 
     # ---------------------------------------------------------------------
