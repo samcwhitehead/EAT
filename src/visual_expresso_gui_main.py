@@ -917,7 +917,8 @@ class BatchCombinedFrame(Frame):
         # define names/labels for buttons + listboxes
         self.button_names = [['add', 'remove', 'clear_all'],
                              ['analyze', 'comb_data', 'save_sum', 'save_ts', 'save_turn_rate'],
-                             ['plot_channel', 'plot_heatmap', 'plot_cum_dist', 'plot_xy', 'plot_dist_mag']]
+                             ['plot_channel', 'plot_heatmap', 'plot_cum_dist',
+                              'plot_xy', 'plot_dist_mag', 'plot_vel_mag']]
         self.button_labels = [['Add Data to Batch',
                                'Remove Selected',
                                'Clear All'],
@@ -927,10 +928,11 @@ class BatchCombinedFrame(Frame):
                                'Save Time Series',
                                'Save Turn Rate'],
                               ['Plot Channel Analysis',
-                               'Plot Heatmap',
+                               'Plot XY Position Heatmap',
                                'Plot Cumulative Distance',
                                'Plot Meal-aligned XY',
-                               'Plot Meal-aligned Radial Dist.']]
+                               'Plot Meal-aligned Radial Dist.',
+                               'Plot Meal-aligned Speed']]
 
         # generate basic panel layout                      
         buildBatchPanel(self, self.button_names, self.button_labels,
@@ -967,6 +969,18 @@ class BatchCombinedFrame(Frame):
                                                                                           x_lim=[],
                                                                                           y_lim=[],
                                                                                           init_vals=[1, 0, 100],
+                                                                                          axis_equal_flag=False,
+                                                                                          axis_tight_flag=True,
+                                                                                          one_x_column_flag=True)
+
+        self.buttons['plot_vel_mag']['command'] = lambda: self.plot_post_meal_data_batch(root, varx='t',
+                                                                                          vary='vel_mag',
+                                                                                          data_name='Speed',
+                                                                                          x_label='Time (s)',
+                                                                                          y_label='Speed (cm/s)',
+                                                                                          x_lim=[],
+                                                                                          y_lim=[],
+                                                                                          init_vals=[1, 0, 50],
                                                                                           axis_equal_flag=False,
                                                                                           axis_tight_flag=True,
                                                                                           one_x_column_flag=True)
@@ -1278,7 +1292,10 @@ class BatchCombinedFrame(Frame):
                                   x_label='X Position (cm)', y_label='Y Position (cm)', x_lim=[-0.4, 0.4],
                                   y_lim=[-0.4, 0.4], init_vals=[1, 0, 10], axis_equal_flag=True,
                                   axis_tight_flag=False, one_x_column_flag=False):
+        # read entries in batch list
         batch_list = self.listbox.get(0, END)
+
+        # check that we have at least one entry to plot data for
         if len(batch_list) < 1:
             tkMessageBox.showinfo(title='Error', message='Add data to batch box for batch analysis')
             return

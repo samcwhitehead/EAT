@@ -657,6 +657,7 @@ def get_meal_aligned_data(h5_fn, var, window_left_sec=0, window_right_sec=10, me
 
         # get radial distance by taking root sum of x,y
         data_aligned = np.sqrt(xdata_aligned**2 + ydata_aligned**2)
+
     else:
         print('No {} data in {} -- skipping'.format(var, filename))
         return
