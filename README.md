@@ -1,10 +1,10 @@
 # EXPRESSO ANALYSIS TOOLBOX (EAT) #
 
-**E**xpresso **A**nalysis **T**oolbox (EAT) is a Python toolbox for analyzing data from Expresso behavioral assays, in which the food consumption of individual *Drosophila* is monitored on the nanoliter scale (described in [Yapici et al., 2016](https://doi.org/10.1016/j.cell.2016.02.061). EAT expands on the original Expresso assay by combining high-resolution food intake measurements with motion tracking, allowing a multi-faceted analysis of *Drosophila* feeding and foraging behavior. For more information, see our manuscript: [to be determined](http://yapicilab.com/research-projects.html) 
+**E**xpresso **A**nalysis **T**oolbox (EAT) is a Python toolbox for analyzing data from Expresso behavioral assays, in which the food consumption of individual *Drosophila* is monitored on the nanoliter scale (described in [Yapici et al., 2016](https://doi.org/10.1016/j.cell.2016.02.061). EAT expands on the original Expresso assay by combining high-resolution food intake measurements with motion tracking, allowing a multi-faceted analysis of *Drosophila* feeding and foraging behavior. For more information, see our manuscript: [to be determined](http://yapicilab.com/research-projects.html).
 
 ### Expresso Hardware and Firmware ###
 
-EAT is designed to be used for analyzing data from Expresso behavioral assays. The resources listed below can be used to build the apparatus for Expresso experiments and collect data during Expresso experiments (probably need to update these):
+EAT is designed to be used for analyzing data from Expresso behavioral assays. The resources listed below can be used to build the apparatus for Expresso experiments and collect data during Expresso experiments. Additional details can be found in the Methods section of our manuscript: [to be determined](http://yapicilab.com/research-projects.html).
 
 * [Open source plans for Expresso sensor banks](http://public.iorodeo.com/docs/expresso/hardware_design_files.html)
 
